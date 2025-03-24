@@ -24,6 +24,7 @@ CREATE TABLE import.imported_fixtures_data_2022 (
     CONSTRAINT fixtures_data_PKEY_2022 PRIMARY KEY (id)
 );
 
+/* Change the create table to match the destination table and copy expressions to match the csv file to be imported */
 COPY import.imported_fixtures_data_2022 (fixture_date, vessel_name, vessel_built, vessel_cubic_capacity, vessel_dwt, vessel_hull_type, cargo_qty, cargo, cargo_type, charterer, laycan_from, laycan_to, 
     port_load, port_delivery, port_discharge, port_redelivery, freight_rate, freight_unit, vessel_owner, vessel_type, vessel_category)
 FROM 'J:/OneDrive/Documents/Personal Files/Academic/Demokritos/Thesis/Complex Event Recognition/Data/Fixtures/filtered_fixtures2022.csv'
