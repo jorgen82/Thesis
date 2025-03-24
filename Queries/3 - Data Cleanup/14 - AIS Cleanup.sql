@@ -1,3 +1,9 @@
+/*
+With the below procedures we will Remove Duplicates and Outliers
+We will use a table named test_ais in order to perform those procedures, avoinding messing with the base table
+When this is done and if the valuation is good, you may replace the main ais table with the test_ais (this is not included in the code)
+*/
+
 /*********************************************************/
 /**************** Create Table and Indexes ***************/
 /*********************************************************/
