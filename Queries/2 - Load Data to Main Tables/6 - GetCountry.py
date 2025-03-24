@@ -9,9 +9,9 @@ gmaps = googlemaps.Client(key='AIzaSyBiPwOYesHsekfowE1R4e67Rb-hxponKNY')
 
 # Database connection details
 db_config = {
-    "dbname": "thesis_v4",
+    "dbname": "thesis_v5",
     "user": "postgres",
-    "password": "Skat0malakas",
+    "password": "xxxxxxx",
     "host": "localhost",
     "port": "5432"
 }
