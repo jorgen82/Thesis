@@ -7,9 +7,9 @@ from psycopg2 import sql
 # Database connection details
 db_config = {
     'host': 'localhost',
-    'dbname': 'thesisv4',
+    'dbname': 'thesis_v5',
     'user': 'postgres',
-    'password': 'Skat0malakas'
+    'password': 'xxxxxx'
 }
 
 directory_path = 'J:/OneDrive/Documents/Personal Files/Academic/Demokritos/Thesis/Complex Event Recognition/Data/simplified_ais_commercial_2019/commercial_2019'  # Replace with your directory path
