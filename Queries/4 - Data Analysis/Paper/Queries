@@ -61,3 +61,10 @@ pivot_data AS (
 )
 SELECT * FROM pivot_data
 ORDER BY total DESC; -- Sort by total column
+
+
+/* Fig. 4: Port Connectivity */
+SELECT from_port_name, to_port_name, COUNT(*)
+FROM data_analysis.vw_track_port_to_port
+GROUP BY from_port_name, to_port_name
+ORDER BY COUNT(*) DESC
