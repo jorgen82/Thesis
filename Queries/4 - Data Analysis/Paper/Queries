@@ -1,4 +1,16 @@
-/* Table I: Fixtures matched using different extended laycan period windows. */
+/* TABLE I: Fixtures matched using different extended laycan period windows. */
 SELECT iteration_number as time_window, count_result as count
 	,cast(((count_result - LAG(count_result) OVER (ORDER BY iteration_number)) / ((count_result + LAG(count_result) OVER (ORDER BY iteration_number))/.2) ) * 100 as decimal(5,2)) as pct_change
 FROM data_analysis.fn_fixtures_to_port_stops_laycan_interval()
+
+/* TABLE II: Vessel behavior statistics before and after fixture. */
+SELECT v.vessel_type, count(distinct t.track_id) as total_records
+	,AVG(distance_from_origin_port_nmi) as distance_from_origin_port_nmi, AVG(distance_to_destination_port_nmi) as distance_to_destination_port_nmi
+	,AVG(travel_speed_from_origin_port_kn) as travel_speed_from_origin_port_kn, AVG(travel_speed_to_destination_port_kn) as travel_speed_to_destination_port_kn
+    ,SUM(CASE WHEN speed_kn >= 0.1 THEN duration_sec END) / 86400 as total_sailing_days
+	,SUM(CASE WHEN speed_kn < 0.1 THEN duration_sec END) / 86400 as total_waiting_days
+FROM fixtures_to_tracks t
+INNER JOIN ais.vessel v on v.id = t.vessel_id
+INNER JOIN ais.ais a on a.vessel_id = t.vessel_id and a.ts >= t.track_start and a.ts <= t.track_end
+WHERE t.track_origin_port_id IS NOT NULL AND t.track_destination_port_id IS NOT NULL
+GROUP BY v.vessel_type;
