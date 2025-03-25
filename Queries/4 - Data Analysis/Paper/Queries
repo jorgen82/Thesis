@@ -1,0 +1,4 @@
+/* Table I: Fixtures matched using different extended laycan period windows. */
+SELECT iteration_number as time_window, count_result as count
+	,cast(((count_result - LAG(count_result) OVER (ORDER BY iteration_number)) / ((count_result + LAG(count_result) OVER (ORDER BY iteration_number))/.2) ) * 100 as decimal(5,2)) as pct_change
+FROM data_analysis.fn_fixtures_to_port_stops_laycan_interval()
