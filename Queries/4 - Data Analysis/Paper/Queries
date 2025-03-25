@@ -3,6 +3,7 @@ SELECT iteration_number as time_window, count_result as count
 	,cast(((count_result - LAG(count_result) OVER (ORDER BY iteration_number)) / ((count_result + LAG(count_result) OVER (ORDER BY iteration_number))/.2) ) * 100 as decimal(5,2)) as pct_change
 FROM data_analysis.fn_fixtures_to_port_stops_laycan_interval()
 
+
 /* TABLE II: Vessel behavior statistics before and after fixture. */
 SELECT v.vessel_type, count(distinct t.track_id) as total_records
 	,AVG(distance_from_origin_port_nmi) as distance_from_origin_port_nmi, AVG(distance_to_destination_port_nmi) as distance_to_destination_port_nmi
@@ -14,3 +15,49 @@ INNER JOIN ais.vessel v on v.id = t.vessel_id
 INNER JOIN ais.ais a on a.vessel_id = t.vessel_id and a.ts >= t.track_start and a.ts <= t.track_end
 WHERE t.track_origin_port_id IS NOT NULL AND t.track_destination_port_id IS NOT NULL
 GROUP BY v.vessel_type;
+
+
+/* TABLE III: The annual number of port calls for the Top-10 Busiest Ports in North America */
+WITH base_data AS (
+    SELECT COALESCE(fr.port, t.port) AS port, 
+           COALESCE(fr.year, t.year) AS year, 
+           COALESCE(count_from, 0) + COALESCE(count_to, 0) AS count
+    FROM (
+        SELECT p.country || ' - ' || p.port_name AS port, 
+               EXTRACT(YEAR FROM ts_start) AS year, 
+               COUNT(*) AS count_from
+        FROM data_analysis.tracks t
+        INNER JOIN data_analysis.port_stops_grouped g 
+            ON g.id = t.from_port_stops_grouped_id
+        INNER JOIN context_data.ports p 
+            ON p.id = g.port_id
+        WHERE from_port_stops_grouped_id != to_port_stops_grouped_id
+        GROUP BY p.country || ' - ' || p.port_name, EXTRACT(YEAR FROM ts_start)
+    ) fr
+    FULL JOIN (
+        SELECT p.country || ' - ' || p.port_name AS port, 
+               EXTRACT(YEAR FROM ts_end) AS year, 
+               COUNT(*) AS count_to
+        FROM data_analysis.tracks t
+        INNER JOIN data_analysis.port_stops_grouped g 
+            ON g.id = t.to_port_stops_grouped_id
+        INNER JOIN context_data.ports p 
+            ON p.id = g.port_id
+        WHERE from_port_stops_grouped_id != to_port_stops_grouped_id
+        GROUP BY p.country || ' - ' || p.port_name, EXTRACT(YEAR FROM ts_end)
+    ) t 
+    ON fr.port = t.port AND fr.year = t.year
+),
+pivot_data AS (
+    SELECT 
+        port,
+		SUM(CASE WHEN year = 2019 THEN count ELSE 0 END) AS "2023",
+        SUM(CASE WHEN year = 2020 THEN count ELSE 0 END) AS "2020",
+        SUM(CASE WHEN year = 2021 THEN count ELSE 0 END) AS "2021",
+        SUM(CASE WHEN year = 2022 THEN count ELSE 0 END) AS "2022",
+        SUM(count) AS total -- Adding total column
+    FROM base_data
+    GROUP BY port
+)
+SELECT * FROM pivot_data
+ORDER BY total DESC; -- Sort by total column
