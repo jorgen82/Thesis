@@ -1,6 +1,13 @@
+/* Use this query to identify the most proper interval to be used as a +/- laycan days for matching a fixture to a port stop */
+
 SELECT iteration_number as time_window, count_result as count
 	,cast(((count_result - LAG(count_result) OVER (ORDER BY iteration_number)) / ((count_result + LAG(count_result) OVER (ORDER BY iteration_number))/.2) ) * 100 as decimal(5,2)) as pct_change
 FROM data_analysis.fn_fixtures_to_port_stops_laycan_interval()
+
+/* 
+Create the fixtures_to_port_stops table
+Make sure you change the interval to the one you selected before
+*/
 
 --DROP TABLE data_analysis.fixtures_to_port_stops;
 
@@ -58,9 +65,9 @@ FROM
 			) as closest_difference_in_days
 		FROM fixtures.fixtures_data f
 		INNER JOIN (SELECT v.vessel_name, ps.* FROM data_analysis.port_stops_grouped ps INNER JOIN ais.vessel v on v.id = ps.vessel_id) ps
-			ON ps.vessel_name = f.vessel_name --pd.vessel_id = f.vessel_id
-			AND ps.first_ts_begin <= (f.laycan_to + INTERVAL '4 days')
-			AND ps.last_ts_end >= (f.laycan_from - INTERVAL '4 days')
+			ON ps.vessel_name = f.vessel_name 
+			AND ps.first_ts_begin <= (f.laycan_to + INTERVAL '4 days')  /* Change the interval here */
+			AND ps.last_ts_end >= (f.laycan_from - INTERVAL '4 days')	/* Change the interval here */
 		INNER JOIN context_data.ports p on p.id = ps.port_id
 		INNER JOIN context_data.countries c on c.id = p.country_id
 		WHERE f.vessel_name NOT IN (SELECT vessel_name FROM ais.vw_non_unique_vessel_names)
