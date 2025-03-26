@@ -1,10 +1,14 @@
+/*****************************************************************************/
 /* TABLE I: Fixtures matched using different extended laycan period windows. */
+/*****************************************************************************/
 SELECT iteration_number as time_window, count_result as count
 	,cast(((count_result - LAG(count_result) OVER (ORDER BY iteration_number)) / ((count_result + LAG(count_result) OVER (ORDER BY iteration_number))/.2) ) * 100 as decimal(5,2)) as pct_change
 FROM data_analysis.fn_fixtures_to_port_stops_laycan_interval()
 
 
+/******************************************************************/
 /* TABLE II: Vessel behavior statistics before and after fixture. */
+/******************************************************************/
 SELECT v.vessel_type, count(distinct t.track_id) as total_records
 	,AVG(distance_from_origin_port_nmi) as distance_from_origin_port_nmi, AVG(distance_to_destination_port_nmi) as distance_to_destination_port_nmi
 	,AVG(travel_speed_from_origin_port_kn) as travel_speed_from_origin_port_kn, AVG(travel_speed_to_destination_port_kn) as travel_speed_to_destination_port_kn
@@ -17,7 +21,9 @@ WHERE t.track_origin_port_id IS NOT NULL AND t.track_destination_port_id IS NOT 
 GROUP BY v.vessel_type;
 
 
+/********************************************************************************************/
 /* TABLE III: The annual number of port calls for the Top-10 Busiest Ports in North America */
+/********************************************************************************************/
 WITH base_data AS (
     SELECT COALESCE(fr.port, t.port) AS port, 
            COALESCE(fr.year, t.year) AS year, 
@@ -63,8 +69,50 @@ SELECT * FROM pivot_data
 ORDER BY total DESC; -- Sort by total column
 
 
+/*****************************/
 /* Fig. 4: Port Connectivity */
+/*****************************/
 SELECT from_port_name, to_port_name, COUNT(*)
 FROM data_analysis.vw_track_port_to_port
 GROUP BY from_port_name, to_port_name
 ORDER BY COUNT(*) DESC
+
+
+/*******************************************************************************************/
+/* TABLE IV: Ratio of inland to total trips for the Top-10 Busiest Ports in North America. */
+/*******************************************************************************************/
+SELECT COALESCE(p.port, ptp.port) as port, p.count as port_traffic, ptp.count as port_to_port_traffic, CAST((ptp.count::numeric / p.count) as decimal(5,2)) as diff
+FROM (
+	SELECT COALESCE(fr.port, t.port) as port, COALESCE(count_from,0) + COALESCE(count_to,0) as count
+	FROM (
+		SELECT p.country || ' - ' || p.port_name as port, COUNT(*) as count_from
+		FROM data_analysis.tracks t
+		INNER JOIN data_analysis.port_stops_grouped g on g.id = t.from_port_stops_grouped_id
+		INNER JOIN context_data.ports p on p.id = g.port_id
+		WHERE from_port_stops_grouped_id != to_port_stops_grouped_id
+		GROUP BY p.country || ' - ' || p.port_name
+		) fr
+	FULL JOIN (
+		SELECT p.country || ' - ' || p.port_name as port, COUNT(*) as count_to
+		FROM data_analysis.tracks t
+		INNER JOIN data_analysis.port_stops_grouped g on g.id = t.to_port_stops_grouped_id
+		INNER JOIN context_data.ports p on p.id = g.port_id
+		WHERE from_port_stops_grouped_id != to_port_stops_grouped_id
+		GROUP BY p.country || ' - ' || p.port_name
+		) t on fr.port = t.port
+	) p
+FULL JOIN
+	(
+	SELECT COALESCE(fr.port, t.port) as port, COALESCE(count_from,0) + COALESCE(count_to,0) as count
+	FROM (
+		SELECT from_country || ' - ' || from_port_name as port, COUNT(*) as count_from
+		FROM data_analysis.vw_track_port_to_port 
+		GROUP BY from_country || ' - ' || from_port_name
+		) fr
+	FULL JOIN (
+		SELECT to_country || ' - ' || to_port_name as port, COUNT(*) as count_to
+		FROM data_analysis.vw_track_port_to_port
+		GROUP BY to_country || ' - ' || to_port_name
+		) t on fr.port = t.port
+	) ptp ON p.port = ptp.port
+ORDER BY 2 DESC
