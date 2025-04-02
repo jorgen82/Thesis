@@ -11,7 +11,7 @@ Make sure you change the interval to the one you selected before
 
 --DROP TABLE data_analysis.fixtures_to_port_stops;
 
---CREATE TABLE data_analysis.fixtures_to_port_stops AS
+CREATE TABLE data_analysis.fixtures_to_port_stops AS
 SELECT fixture_id, vessel_id, port_id, port_stops_grouped_id, vessel_name, laycan_from, laycan_to, first_ts_begin, last_ts_end, fixture_port_load, fixture_country, port_stop_port_name, port_stop_country,
 	total_duration_h, onTime, arrival_after_laycan_from_days, arrival_after_laycan_to_days,
 	CASE WHEN arrival_after_laycan_from_days < 0 THEN arrival_after_laycan_from_days END AS early_arrival_days,
