@@ -1,3 +1,5 @@
+# This is used in order to import the Vessel Data file. 
+
 import os
 import pandas as pd
 import psycopg2
