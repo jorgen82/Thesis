@@ -319,7 +319,7 @@ WITH speed_check AS (
 )
 SELECT *
 FROM speed_check
-WHERE speed_kn> 20
+WHERE speed_kn> 20;
 
 
 SELECT *
