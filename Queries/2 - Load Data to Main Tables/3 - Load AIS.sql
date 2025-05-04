@@ -36,7 +36,7 @@ FROM
 LEFT JOIN ais.vessel s on s.vessel_name = a.vesselname 
 	AND s.mmsi = a.mmsi
 	AND s.imo = a.imo
-	AND s.vessel_category = a.vessel_category
+	AND s.vessel_category = a.vessel_category;
 
 
 ALTER TABLE ais.ais
