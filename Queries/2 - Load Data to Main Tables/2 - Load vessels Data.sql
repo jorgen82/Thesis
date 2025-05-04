@@ -1,3 +1,6 @@
+/* 
+	This script will insert some extra vessel data we might need on the ais.vessel table.
+*/
 
 ALTER TABLE ais.vessel
 ADD COLUMN vessel_type varchar(50), 
