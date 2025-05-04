@@ -1,3 +1,8 @@
+/* 
+	This script will load the Vessel table (ais.vessel)
+	The data for the vessel table are exported from the AIS data
+*/
+
 CREATE SCHEMA IF NOT EXISTS ais;
 
 CREATE TABLE IF NOT EXISTS ais.vessel (
