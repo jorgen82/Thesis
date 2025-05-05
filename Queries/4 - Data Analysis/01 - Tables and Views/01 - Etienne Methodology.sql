@@ -126,7 +126,8 @@ CREATE TABLE data_analysis.stops AS
 		WHERE stop_begin.vessel_id=stop_end.vessel_id 
 			AND ts_begin <= ts_end  --stop should follow the beginning
 		ORDER BY ts_end LIMIT 1  --select only the first stop
-		) AS q2 ON (true);
+		) AS q2 ON (true)
+	WHERE ts_begin != ts_end;
 
 ALTER TABLE data_analysis.stops ADD COLUMN id bigserial;
 
