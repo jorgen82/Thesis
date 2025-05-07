@@ -14,7 +14,7 @@ db_config = {
     'password': 'xxxxxx'
 }
 
-directory_path = 'J:/OneDrive/Documents/Personal Files/Academic/Demokritos/Thesis/Complex Event Recognition/Data/simplified_ais_commercial_2019/commercial_2019'  # Replace with your directory path
+directory_path = 'J:/OneDrive/Documents/Personal Files/Academic/Demokritos/Thesis/Complex Event Recognition/Data/vessel_data/'  # Replace with your directory path
 table_name = 'import.imported_vessel_data'           # Specify the table name you want in PostgreSQL
 
 
