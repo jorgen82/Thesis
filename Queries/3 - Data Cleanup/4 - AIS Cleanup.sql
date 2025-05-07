@@ -1,7 +1,7 @@
 /*
 With the below procedures we will Remove Duplicates and Outliers
 We will use a table named test_ais in order to perform those procedures, avoiding messing with the base table
-When this is done and if the valuation is good, you may replace the main ais table with the test_ais (this is not included in the code)
+**** When this is done and if the valuation is good, you may replace the main ais table with the test_ais (this is not included in the code)
 
 PLEASE DO NOT RUN THIS SCRIPT AT ONCE, BUT EACH STEP SEQUENTIALLY IN ORDER TO BE ABLE TO FOLLOW UP THE WHOLE PROCESS 
 */
@@ -93,14 +93,17 @@ BEGIN
 	    FROM distance_calculation
 	) 
 
+	-- All the duplicates IDs are inserted to test_ais_duplicates table
 	INSERT INTO test_ais_duplicates
 	SELECT *
 	FROM ais.ais 
 	WHERE id IN (SELECT id FROM ranked_duplicates WHERE rank > 1);
 
+	-- We delete from the test_ais table all the duplicate records, based on the IDs we stored previously on the test_ais_duplicates
 	DELETE FROM test_ais
 	WHERE id IN (SELECT id FROM test_ais_duplicates);
 
+	-- We just inform the user for the deleted record count
 	SELECT COUNT(*) INTO del_count FROM test_ais_duplicates;
 	RAISE NOTICE 'Total removed duplicates: %' ,del_count;
 	
@@ -212,7 +215,8 @@ BEGIN
 	            FROM ranked_deletions
 	            WHERE rank = 1 -- Only take the first record per vessel
 	        )
-			
+
+	    	-- All the outlier IDs are inserted to temp_ais_to_be_deleted table
 	        INSERT INTO temp_ais_to_be_deleted
 	        SELECT id
 	        FROM to_delete;
