@@ -5,7 +5,7 @@ import googlemaps
 table_name = 'import.imported_fixtures_data_2019'
 
 # Initialize the API client
-gmaps = googlemaps.Client(key='AIzaSyBiPwOYesHsekfowE1R4e67Rb-hxponKNY')
+gmaps = googlemaps.Client(key='xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
 
 # Database connection details
 db_config = {
