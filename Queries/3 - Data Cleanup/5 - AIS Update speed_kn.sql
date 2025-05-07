@@ -1,7 +1,7 @@
 /* Create the speed_kn as a calculation based on the timestamp and coordinates, since speed_over_ground cannot be trusted  */
 
 ALTER TABLE ais.ais
-ADD COLUMN speed_kn decimal(4,2);
+ADD COLUMN speed_kn decimal(10,2);
 
 CREATE INDEX idx_ais_id ON ais.ais(id);
 
