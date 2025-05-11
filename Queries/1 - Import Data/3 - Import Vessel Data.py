@@ -1,3 +1,4 @@
+#%%
 # This is used in order to import the Vessel Data file. 
 
 import os
@@ -9,7 +10,7 @@ from psycopg2 import sql
 # Database connection details
 db_config = {
     'host': 'localhost',
-    'dbname': 'thesis_v5',
+    'dbname': 'thesis',
     'user': 'postgres',
     'password': 'xxxxxx'
 }
@@ -55,7 +56,7 @@ def read_directory_files_to_pandas(directory):
                 print(f'Reading {file_path}...')
 
                 # Read the Excel file (first sheet by default)
-                df = pd.read_excel(file_path)
+                df = pd.read_excel(file_path, skiprows=3)
 
                 if not df.empty:
                     # Add a 'filename' column with the current file name
@@ -70,13 +71,15 @@ def read_directory_files_to_pandas(directory):
 
 # Function to generate CREATE TABLE SQL based on pandas DataFrame
 def generate_create_table_sql(df, table_name):
-    # Generate the CREATE TABLE SQL dynamically based on the dataframe's columns
+    # Generate the CREATE TABLE SQL dynamically with quoted column names
     columns = []
     for col in df.columns:
         col_type = get_postgresql_type(df[col])
-        columns.append(f"{col} {col_type}")
+        # Use double quotes for PostgreSQL identifier quoting
+        safe_col = f'"{col}"'
+        columns.append(f"{safe_col} {col_type}")
 
-    create_table_query = f"CREATE TABLE IF NOT EXISTS {table_name} ({', '.join(columns)});"
+    create_table_query = f'CREATE TABLE IF NOT EXISTS {table_name} ({", ".join(columns)});'
     return create_table_query
 
 # Main function to read CSVs, create a DataFrame, and generate SQL statement
