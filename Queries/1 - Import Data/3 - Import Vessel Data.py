@@ -43,26 +43,26 @@ def get_postgresql_type(pandas_type):
     else:
         return 'TEXT'
 
-# Function to read all CSV files in a directory, concatenate them into a single DataFrame, and add a 'filename' column
+# Function to read all Excel files in a directory, concatenate them into a single DataFrame, and add a 'filename' column
 def read_directory_files_to_pandas(directory):
     all_dataframes = []
 
     # Walk through the directory and its subdirectories
     for root, dirs, files in os.walk(directory):
         for file in files:
-            if file.endswith('.csv'):
+            if file.endswith('.xlsx') and not file.startswith('~$'):  # Skip temporary Excel files
                 file_path = os.path.join(root, file)
                 print(f'Reading {file_path}...')
 
-                # Read the CSV file (ignore the header)
-                df = pd.read_csv(file_path, header=0)
+                # Read the Excel file (first sheet by default)
+                df = pd.read_excel(file_path)
 
                 if not df.empty:
                     # Add a 'filename' column with the current file name
                     df.insert(0, 'filename', file)
-                    
+
                     all_dataframes.append(df)
-                
+
     # Concatenate all dataframes into one
     combined_df = pd.concat(all_dataframes, ignore_index=True)
     return combined_df
