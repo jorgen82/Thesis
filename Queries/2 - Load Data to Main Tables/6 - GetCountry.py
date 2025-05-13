@@ -2,7 +2,7 @@ import pandas as pd
 import psycopg2
 import googlemaps
 
-table_name = 'import.imported_fixtures_data_2019'
+table_name = 'fixtures.fixtures_data'
 
 # Initialize the API client
 gmaps = googlemaps.Client(key='xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
