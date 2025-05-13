@@ -13,14 +13,13 @@ CREATE INDEX idx_ports_id ON context_data.ports (id);
 
 
 /* Fixing issue with different port mapped to the same coordinates */
-WITH concatenated_data AS (
-	SELECT 
-        min(id) as id,
-		geom, 
-        string_agg(port_name, ' / ') AS concatenated_names -- Concatenate the names for duplicate geometries
-    FROM context_data.ports
-    GROUP BY geom
-)
+CREATE TEMP TABLE temp_concatenated_ports AS
+SELECT 
+    min(id) AS id,
+    geom,
+    STRING_AGG(port_name, ' / ') AS concatenated_names
+FROM context_data.ports
+GROUP BY geom;
 
 UPDATE context_data.ports p
 SET port_name = c.concatenated_names
@@ -32,6 +31,7 @@ USING concatenated_data c
 WHERE p.geom = c.geom
 AND p.id <> c.id;
 
+DROP TABLE temp_concatenated_ports;
 
 /* Fix SOUTHWEST PASS wrong coordinates */
 UPDATE context_data.ports 
