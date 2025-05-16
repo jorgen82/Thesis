@@ -52,7 +52,7 @@ CREATE TABLE data_analysis.waiting_areas AS
 SELECT cid_dbscan,
 	CASE WHEN cid_dbscan < 1000000 THEN 'River' WHEN cid_dbscan >= 1000000 AND cid_dbscan < 2000000 THEN 'Coastal' ELSE 'Other' END as river_coastal,
 	ST_SetSRID(ST_ConvexHull(st_collect(centr)),4326) as convex_hull ,
-	ST_SetSRID(ST_ConcaveHull(st_collect(centr),0.75),4326) as concave_hull ,
+	ST_SetSRID(data_analysis.safe_concave_hull(st_collect(centr), 0.75), 4326) as concave_hull,
 	ST_SetSRID(ST_MinimumBoundingCircle(st_collect(centr)),4326) as bounding_circle ,
 	ST_SetSRID(ST_Centroid(st_collect(centr)),4326) as centr,
 	count(*) as nb_stops ,
@@ -66,13 +66,14 @@ SELECT cid_dbscan,
 	min(duration_hours) as min_duration_hours,
 	max(duration_hours) as max_duration_hours,
 	avg(duration_hours) as avg_duration_hours,
-	CAST(ST_Area(ST_Transform(ST_ConcaveHull(st_collect(centr),0.75), 3857)) / 1000000 as decimal(14,6)) as area_km2,
-	CAST(count(*) / (ST_Area(ST_Transform(ST_ConcaveHull(st_collect(centr),0.75), 3857)) / 1000000) as decimal(10,2)) as vessel_density,
+	CAST(ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 as decimal(14,6)) as area_km2,
+	CAST(count(*) / (ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000) as decimal(10,2)) as vessel_density,
 	CAST(avg(duration_hours) * count(*) as decimal(10,2)) as total_vessel_hours_waiting,
-	CAST((count(*) / (ST_Area(ST_Transform(ST_ConcaveHull(st_collect(centr),0.75), 3857)) / 1000000)) *  avg(duration_hours) as decimal(10,2)) as utilization_rate	
+	CAST((count(*) / (ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000)) *  avg(duration_hours) as decimal(10,2)) as utilization_rate	
 FROM data_analysis.waiting_points
 WHERE cid_dbscan IS NOT NULL
-GROUP BY cid_dbscan ;
+GROUP BY cid_dbscan;
+
 
 -- Add id column and create appropriate indexes for the waiting_areas table
 ALTER TABLE data_analysis.waiting_areas ADD ID bigserial;
@@ -153,7 +154,7 @@ SELECT cid_dbscan,
     CONCAT("Year", '-0') as year_month_quarter,
 	CASE WHEN cid_dbscan < 1000000 THEN 'River' WHEN cid_dbscan >= 1000000 AND cid_dbscan < 2000000 THEN 'Coastal' ELSE 'Other' END as river_coastal,
 	ST_SetSRID(ST_ConvexHull(st_collect(centr)),4326) as convex_hull,
-	--ST_SetSRID(ST_ConcaveHull(st_collect(centr),0.75),4326) as concave_hull ,
+	ST_SetSRID(data_analysis.safe_concave_hull(st_collect(centr),0.75),4326) as concave_hull ,
 	ST_SetSRID(ST_MinimumBoundingCircle(st_collect(centr)),4326) as bounding_circle ,
 	ST_SetSRID(ST_Centroid(st_collect(centr)),4326) as centr,
 	count (*) as nb_stops ,
@@ -171,8 +172,8 @@ SELECT cid_dbscan,
 		CASE WHEN count(*) = 1 THEN 0.0001
 	 		WHEN count(*) = 2 AND ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 = 0 THEN 0.0001
 			WHEN count(*) = 2 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 
-	 		WHEN count(*) > 2 AND ST_Area(ST_Transform(ST_ConvexHull(st_collect(centr)), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000
-			ELSE ST_Area(ST_Transform(ST_ConvexHull(st_collect(centr)), 3857)) / 1000000 
+	 		WHEN count(*) > 2 AND ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000
+			ELSE ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 
 	 		END
 		as decimal(14,6)) as area_km2,
 	 CAST(
@@ -180,8 +181,8 @@ SELECT cid_dbscan,
 	 	(CASE WHEN count(*) = 1 THEN 0.0001
 	 		WHEN count(*) = 2 AND ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 = 0 THEN 0.0001
 			WHEN count(*) = 2 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 
-	 		WHEN count(*) > 2 AND ST_Area(ST_Transform(ST_ConvexHull(st_collect(centr)), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000
-			ELSE ST_Area(ST_Transform(ST_ConvexHull(st_collect(centr)), 3857)) / 1000000 
+	 		WHEN count(*) > 2 AND ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000
+			ELSE ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 
 	 		END) 		
 	 	as decimal(30,2)) as vessel_density,
 	 CAST(avg(duration_hours) * count(*) as decimal(20,2)) as total_vessel_hours_waiting,
@@ -190,8 +191,8 @@ SELECT cid_dbscan,
 	 	(CASE WHEN count(*) = 1 THEN 0.0001
 	 		WHEN count(*) = 2 AND ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 = 0 THEN 0.0001
 			WHEN count(*) = 2 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 
-	 		WHEN count(*) > 2 AND ST_Area(ST_Transform(ST_ConvexHull(st_collect(centr)), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000
-			ELSE ST_Area(ST_Transform(ST_ConvexHull(st_collect(centr)), 3857)) / 1000000 
+	 		WHEN count(*) > 2 AND ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000
+			ELSE ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 
 	 		END
 	 	)) *  avg(duration_hours) 
 	 	as decimal(30,2)) as utilization_rate	
@@ -206,7 +207,7 @@ SELECT cid_dbscan,
     "Year-Quarter" as year_month_quarter,
 	CASE WHEN cid_dbscan < 1000000 THEN 'River' WHEN cid_dbscan >= 1000000 AND cid_dbscan < 2000000 THEN 'Coastal' ELSE 'Other' END as river_coastal,
 	ST_SetSRID(ST_ConvexHull(st_collect(centr)),4326) as convex_hull ,
-	--ST_SetSRID(ST_ConcaveHull(st_collect(centr),0.75),4326) as concave_hull ,
+	ST_SetSRID(data_analysis.safe_concave_hull(st_collect(centr),0.75),4326) as concave_hull ,
 	ST_SetSRID(ST_MinimumBoundingCircle(st_collect(centr)),4326) as bounding_circle ,
 	ST_SetSRID(ST_Centroid(st_collect(centr)),4326) as centr,
 	count (*) as nb_stops ,
@@ -224,8 +225,8 @@ SELECT cid_dbscan,
 		CASE WHEN count(*) = 1 THEN 0.0001
 	 		WHEN count(*) = 2 AND ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 = 0 THEN 0.0001
 			WHEN count(*) = 2 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 
-	 		WHEN count(*) > 2 AND ST_Area(ST_Transform(ST_ConcaveHull(st_collect(centr),0.75), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000
-			ELSE ST_Area(ST_Transform(ST_ConcaveHull(st_collect(centr),0.75), 3857)) / 1000000 
+	 		WHEN count(*) > 2 AND ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000
+			ELSE ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 
 	 		END
 		as decimal(14,6)) as area_km2,
 	 CAST(
@@ -233,8 +234,8 @@ SELECT cid_dbscan,
 	 	(CASE WHEN count(*) = 1 THEN 0.0001
 	 		WHEN count(*) = 2 AND ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 = 0 THEN 0.0001
 			WHEN count(*) = 2 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 
-	 		WHEN count(*) > 2 AND ST_Area(ST_Transform(ST_ConcaveHull(st_collect(centr),0.75), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000
-			ELSE ST_Area(ST_Transform(ST_ConcaveHull(st_collect(centr),0.75), 3857)) / 1000000 
+	 		WHEN count(*) > 2 AND ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000
+			ELSE ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 
 	 		END) 		
 	 	as decimal(30,2)) as vessel_density,
 	 CAST(avg(duration_hours) * count(*) as decimal(20,2)) as total_vessel_hours_waiting,
@@ -243,8 +244,8 @@ SELECT cid_dbscan,
 	 	(CASE WHEN count(*) = 1 THEN 0.0001
 	 		WHEN count(*) = 2 AND ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 = 0 THEN 0.0001
 			WHEN count(*) = 2 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 
-	 		WHEN count(*) > 2 AND ST_Area(ST_Transform(ST_ConcaveHull(st_collect(centr),0.75), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000
-			ELSE ST_Area(ST_Transform(ST_ConcaveHull(st_collect(centr),0.75), 3857)) / 1000000 
+	 		WHEN count(*) > 2 AND ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000
+			ELSE ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 
 	 		END
 	 	)) *  avg(duration_hours) 
 	 	as decimal(30,2)) as utilization_rate	
@@ -259,7 +260,7 @@ SELECT cid_dbscan,
     "Year-Month" as year_month_quarter,
 	CASE WHEN cid_dbscan < 1000000 THEN 'River' WHEN cid_dbscan >= 1000000 AND cid_dbscan < 2000000 THEN 'Coastal' ELSE 'Other' END as river_coastal,
 	ST_SetSRID(ST_ConvexHull(st_collect(centr)),4326) as convex_hull ,
-	--ST_SetSRID(ST_ConcaveHull(st_collect(centr),0.75),4326) as concave_hull ,
+	ST_SetSRID(data_analysis.safe_concave_hull(st_collect(centr),0.75),4326) as concave_hull ,
 	ST_SetSRID(ST_MinimumBoundingCircle(st_collect(centr)),4326) as bounding_circle ,
 	ST_SetSRID(ST_Centroid(st_collect(centr)),4326) as centr,
 	count (*) as nb_stops ,
@@ -277,8 +278,8 @@ SELECT cid_dbscan,
 		CASE WHEN count(*) = 1 THEN 0.0001
 	 		WHEN count(*) = 2 AND ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 = 0 THEN 0.0001
 			WHEN count(*) = 2 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 
-	 		WHEN count(*) > 2 AND ST_Area(ST_Transform(ST_ConcaveHull(st_collect(centr),0.75), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000
-			ELSE ST_Area(ST_Transform(ST_ConcaveHull(st_collect(centr),0.75), 3857)) / 1000000 
+	 		WHEN count(*) > 2 AND ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000
+			ELSE ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 
 	 		END
 		as decimal(14,6)) as area_km2,
 	 CAST(
@@ -286,8 +287,8 @@ SELECT cid_dbscan,
 	 	(CASE WHEN count(*) = 1 THEN 0.0001
 	 		WHEN count(*) = 2 AND ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 = 0 THEN 0.0001
 			WHEN count(*) = 2 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 
-	 		WHEN count(*) > 2 AND ST_Area(ST_Transform(ST_ConcaveHull(st_collect(centr),0.75), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000
-			ELSE ST_Area(ST_Transform(ST_ConcaveHull(st_collect(centr),0.75), 3857)) / 1000000 
+	 		WHEN count(*) > 2 AND ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000
+			ELSE ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 
 	 		END) 		
 	 	as decimal(30,2)) as vessel_density,
 	 CAST(avg(duration_hours) * count(*) as decimal(20,2)) as total_vessel_hours_waiting,
@@ -296,14 +297,16 @@ SELECT cid_dbscan,
 	 	(CASE WHEN count(*) = 1 THEN 0.0001
 	 		WHEN count(*) = 2 AND ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 = 0 THEN 0.0001
 			WHEN count(*) = 2 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 
-	 		WHEN count(*) > 2 AND ST_Area(ST_Transform(ST_ConcaveHull(st_collect(centr),0.75), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000
-			ELSE ST_Area(ST_Transform(ST_ConcaveHull(st_collect(centr),0.75), 3857)) / 1000000 
+	 		WHEN count(*) > 2 AND ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000
+			ELSE ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 
 	 		END
 	 	)) *  avg(duration_hours) 
 	 	as decimal(30,2)) as utilization_rate	
 FROM data_analysis.waiting_points_seasonal
 WHERE cid_dbscan IS NOT NULL
 GROUP BY cid_dbscan,"Year","Month","Year-Month";
+
+
 
 -- Add id column and create appropriate indexes for the waiting_areas_seasonals table
 ALTER TABLE data_analysis.waiting_areas_seasonal ADD ID bigserial;
@@ -312,8 +315,3 @@ CREATE INDEX idx_waiting_areas_seasonal_centr ON data_analysis.waiting_areas_sea
 CREATE INDEX idx_waiting_areas_seasonal_convex_hull ON data_analysis.waiting_areas_seasonal USING gist (convex_hull);
 CREATE INDEX idx_waiting_areas_seasonal_concave_hull ON data_analysis.waiting_areas_seasonal USING gist (concave_hull);
 CREATE INDEX idx_waiting_areas_seasonal_bounding_circle ON data_analysis.waiting_areas_seasonal USING gist (bounding_circle);
-
-
-
-
-
