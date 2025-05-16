@@ -63,8 +63,6 @@ FROM clusters
 INNER JOIN incr_clusters ON incr_clusters.port_id = clusters.port_id AND incr_clusters.cid_dbscan = clusters.cid_dbscan
 WHERE cid_dbscan_incr IN (SELECT cid_dbscan_incr FROM min_dist_clusters);
 
-SELECT * FROM data_analysis.port_stops limit 10
-
 ALTER TABLE data_analysis.port_stops ADD COLUMN id bigserial;
 
 ALTER TABLE data_analysis.port_stops ADD CONSTRAINT pk_port_stops_id PRIMARY KEY ("id");
