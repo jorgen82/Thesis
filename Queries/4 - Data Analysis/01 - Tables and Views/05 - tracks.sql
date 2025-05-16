@@ -119,7 +119,7 @@ FROM (SELECT id
 		,CAST(EXTRACT(epoch from (ts_start - LAG(ts_end) OVER (PARTITION BY vessel_id ORDER BY ts_start))) / 86400 as decimal(6,2)) as days_from_previous_track
 		FROM data_analysis.tracks
 	)tr_pre
-WHERE tr.id = tr_pre.id
+WHERE tr.id = tr_pre.id;
 
 
 -- Add track region info (west - east coast)
@@ -129,4 +129,4 @@ ALTER TABLE data_analysis.tracks
 UPDATE data_analysis.tracks tr
 SET us_region = r.region
 FROM context_data.us_region r
-WHERE ST_CONTAINS(r.geom, tr.track) = true
+WHERE ST_CONTAINS(r.geom, tr.track) = true;
