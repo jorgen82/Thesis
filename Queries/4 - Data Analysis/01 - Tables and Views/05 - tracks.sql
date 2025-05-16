@@ -121,11 +121,6 @@ FROM (SELECT id
 	)tr_pre
 WHERE tr.id = tr_pre.id
 
-SELECT vessel_id, group_id, from_port_stops_grouped_id, to_port_stops_grouped_id, points, ts_start, ts_end, duration_h, avg_speed_m_s, avg_speed_kn, distance_m, distance_nmi, direction, id
-	,LAG(id) OVER (PARTITION BY vessel_id ORDER BY ts_start) as previous_id
-	,CAST(EXTRACT(epoch from (ts_start - LAG(ts_end) OVER (PARTITION BY vessel_id ORDER BY ts_start))) / 86400 as decimal(6,2)) as days_from_previous_track
-FROM data_analysis.tracks;
-
 
 -- Add track region info (west - east coast)
 ALTER TABLE data_analysis.tracks
