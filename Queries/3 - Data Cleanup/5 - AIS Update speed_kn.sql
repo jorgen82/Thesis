@@ -23,6 +23,7 @@ WITH speed AS (
 			,LAG(geom) OVER (PARTITION BY vessel_id ORDER BY ts) AS p_pre
 		FROM ais.ais
 		)
+	WHERE ts_cur != ts_pre
 	)
 
 UPDATE ais.ais A
