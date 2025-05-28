@@ -1,3 +1,7 @@
+/*
+  Here we are creating a table having very rought geometries in order to make a distinction between East as West US Coast
+*/
+
 CREATE TABLE "context_data"."us_region"();
 ALTER TABLE "context_data"."us_region" ADD COLUMN "id" SERIAL CONSTRAINT "pk_us_region" PRIMARY KEY;
 ALTER TABLE "context_data"."us_region" ADD COLUMN "region" CHAR(4);
