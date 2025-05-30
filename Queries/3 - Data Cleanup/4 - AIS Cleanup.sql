@@ -10,7 +10,7 @@ PLEASE DO NOT RUN THIS SCRIPT AT ONCE, BUT EACH STEP SEQUENTIALLY IN ORDER TO BE
 /**************** Create Table and Indexes ***************/
 /*********************************************************/
 
--- We will use another table (test table) where we will copy the AIS data, sicne we do not want to do the cleanup in the AIS table directly
+-- We will use another table (test table) where we will copy the AIS data, since we do not want to do the cleanup in the AIS table directly
 CREATE TABLE test_ais AS
 	SELECT * FROM ais.ais;
 CREATE INDEX IF NOT EXISTS idx_test_ais_vessel_id_ts ON test_ais(vessel_id, ts);
@@ -125,24 +125,26 @@ BEGIN
 	RAISE NOTICE '%: Script Begins', cur_ts;
 
 	-- Step 0: Initialize temporary table to store previous timestamps per vessel
+	IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_type = 'LOCAL TEMPORARY' AND table_name = 'temp_ais_to_be_deleted') THEN
+		DROP TABLE temp_ais_to_be_deleted;
+		raise notice '%: Temp Table temp_ais_to_be_deleted dropped', cur_ts;
+	END IF;
+
+	CREATE TABLE temp_ais_to_be_deleted (
+	    id BIGINT PRIMARY KEY,
+	    deleted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	);
+	
+	raise notice '%: Table temp_ais_to_be_deleted created', cur_ts;
+
+
+	-- Create table to store the deleted values
 	IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'test_ais_deleted_records') THEN
 		DROP TABLE test_ais_deleted_records;
 		raise notice '%: Table test_ais_deleted_records dropped', cur_ts;
 	END IF;
 
-	CREATE TABLE test_ais_deleted_records (
-	    id BIGINT PRIMARY KEY,
-	    deleted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-	);
-	
-	raise notice '%: Table test_ais_deleted_records created', cur_ts;
-
-	IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_type = 'LOCAL TEMPORARY' AND table_name = 'temp_ais_to_be_deleted') THEN
-		DROP TABLE temp_ais_to_be_deleted;
-		raise notice '%: Temp Table temp_ais_to_be_deleted dropped', cur_ts;
-	END IF;
-	
-	CREATE TEMP TABLE temp_ais_to_be_deleted (
+	CREATE TEMP TABLE test_ais_deleted_records (
     	id bigint,
 	    vessel_id integer,
 	    latitude numeric(8,6),
