@@ -23,11 +23,11 @@ GROUP BY geom;
 
 UPDATE context_data.ports p
 SET port_name = c.concatenated_names
-FROM concatenated_data c
+FROM temp_concatenated_ports c
 WHERE p.id = c.id;
 
 DELETE FROM context_data.ports p
-USING concatenated_data c
+USING temp_concatenated_ports c
 WHERE p.geom = c.geom
 AND p.id <> c.id;
 
