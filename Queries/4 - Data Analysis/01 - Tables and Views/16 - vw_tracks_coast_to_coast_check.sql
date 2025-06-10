@@ -18,7 +18,8 @@ WITH tracks AS(
 	LEFT JOIN ais.vessel v on v.id = tracks.vessel_id
 )
 
-SELECT t_cur.vessel_id, '{' || CAST(t_pre.track_id as varchar) || ', ' || CAST(t_cur.track_id as varchar)  || '}'as tracks_id, '{' || CAST(t_pre.group_id as varchar) || ', ' || CAST(t_cur.group_id as varchar) || '}' as groups_id
+SELECT t_cur.vessel_id, ('{' || CAST(t_pre.track_id as varchar) || ', ' || CAST(t_cur.track_id as varchar)  || '}')::integer[] as tracks_id
+    ,('{' || CAST(t_pre.group_id as varchar) || ', ' || CAST(t_cur.group_id as varchar) || '}')::integer[] as groups_id
     ,t_pre.from_port_stops_grouped_id, t_cur.to_port_stops_grouped_id, t_pre.points + t_cur.points as points
     ,t_pre.ts_start, t_cur.ts_end, t_pre.duration_h + t_cur.duration_h as duration_h, t_pre.duration_days + t_cur.duration_days as duration_days, ((t_pre.points * t_pre.avg_speed_m_s) + (t_cur.points * t_cur.avg_speed_m_s)) / (t_pre.points + t_cur.points) as avg_speed_m_s
     ,((t_pre.points * t_pre.avg_speed_kn) + (t_cur.points * t_cur.avg_speed_kn)) / (t_pre.points + t_cur.points) as avg_speed_kn
@@ -26,6 +27,19 @@ SELECT t_cur.vessel_id, '{' || CAST(t_pre.track_id as varchar) || ', ' || CAST(t
     ,t_cur.track_id, t_cur.previous_track_id, t_pre.us_region || ' to ' || t_cur.us_region as us_region
     --,CAST((EXTRACT (epoch from t_cur.ts_start) - EXTRACT (epoch from t_pre.ts_end)) / 86400 as decimal(5,2)) as days_between_tracks
     ,t_cur.days_from_previous_track as days_between_tracks
+    ,CASE WHEN t_cur.days_from_previous_track >= 71 THEN '71-80'
+        WHEN t_cur.days_from_previous_track >= 61 THEN '61-70'
+        WHEN t_cur.days_from_previous_track >= 51 THEN '51-60'
+        WHEN t_cur.days_from_previous_track >= 41 THEN '41-50'
+        WHEN t_cur.days_from_previous_track >= 36 THEN '36-40'
+        WHEN t_cur.days_from_previous_track >= 31 THEN '31-35'
+        WHEN t_cur.days_from_previous_track >= 26 THEN '26-30'
+        WHEN t_cur.days_from_previous_track >= 21 THEN '21-25'
+        WHEN t_cur.days_from_previous_track >= 16 THEN '16-20'
+        WHEN t_cur.days_from_previous_track >= 11 THEN '11-15'
+        WHEN t_cur.days_from_previous_track >= 6 THEN '6-10'
+        ELSE '0-5' 
+        END as days_between_tracks_grouped
 FROM tracks t_cur
 LEFT JOIN tracks t_pre ON t_pre.track_id = t_cur.previous_track_id 
 WHERE t_cur.to_check = 1;
