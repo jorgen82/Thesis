@@ -125,7 +125,7 @@ BEGIN
 	RAISE NOTICE '%: Script Begins', cur_ts;
 
 	-- Step 0: Initialize temporary table to store previous timestamps per vessel
-	IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_type = 'LOCAL TEMPORARY' AND table_name = 'temp_ais_to_be_deleted') THEN
+	IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_type = 'LOCAL TEMPORARY' AND table_name = '_to_be_deleted') THEN
 		DROP TABLE temp_ais_to_be_deleted;
 		raise notice '%: Temp Table temp_ais_to_be_deleted dropped', cur_ts;
 	END IF;
@@ -239,7 +239,7 @@ BEGIN
 	        INSERT INTO test_ais_deleted_records (id, vessel_id, latitude, longitude, geom, speed_over_ground, course_over_ground, heading, status, draft, ts)
 	        SELECT a.id, vessel_id, latitude, longitude, geom, speed_over_ground, course_over_ground, heading, status, draft, ts
 	        FROM temp_ais_to_be_deleted tmp
-			INNER JOIN temp_ais a on a.id = tmp.id;
+			INNER JOIN test_ais a on a.id = tmp.id;
 			
 			SELECT TO_CHAR(clock_timestamp(), 'YYYY/MM/DD HH24:MI:SS') INTO cur_ts;
 			RAISE NOTICE '%: Log the deleted IDs', cur_ts;
