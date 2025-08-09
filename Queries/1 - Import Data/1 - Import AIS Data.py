@@ -1,8 +1,15 @@
+# This Python Script will take all the csv files from a folder and load those to a table
+# Both the csv path and the PostgreSQL table should be difined on the relevant variables
+
 import os
 import pandas as pd
 import psycopg2
 from psycopg2 import sql
 from psycopg2.extras import execute_values
+
+# ************************************************************************************
+# Define the PostgreSQL connection details, the csv location and the load table
+# ************************************************************************************
 
 # Database connection details
 db_config = {
@@ -12,11 +19,17 @@ db_config = {
     'password': 'xxxxx'
 }
 
-directory_path = 'J:/OneDrive/Documents/Personal Files/Academic/Demokritos/Thesis/Complex Event Recognition/Data/AIS/commercial_2022'  # Replace with your directory path
-table_name = 'import.imported_ais_data_2022'           # Specify the table name you want in PostgreSQL
+# CSV folder location. Replace with your directory path
+directory_path = 'J:/OneDrive/Documents/Personal Files/Academic/Demokritos/Thesis/Complex Event Recognition/Data/AIS/commercial_2022' 
+
+# PostgreSQL tables where the data will be loaded
+table_name = 'import.imported_ais_data_2022'           
 
 
 #%%
+# ************************************************************************************
+# Define funtions
+# ************************************************************************************
 
 # Function to establish a PostgreSQL connection
 def get_connection():
@@ -137,7 +150,11 @@ def insert_dataframe_to_postgresql(df, table_name):
                 
 
  
-#%%        
+#%% 
+# ************************************************************************************
+# Main Program
+# ************************************************************************************
+
 df, create_table_sql = process_directory(directory_path, table_name)
 
 # Print the CREATE TABLE SQL for review
