@@ -157,7 +157,7 @@ BEGIN
 	    draft numeric(3,1),
 	    ts timestamp without time zone
 	);
-	raise notice '%: Table temp_ais_to_be_deleted created', cur_ts;
+	raise notice '%: Table test_ais_deleted_records created', cur_ts;
 
 	IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_type = 'LOCAL TEMPORARY' AND table_name = 'temp_vessel_last_ts') THEN
 		DROP TABLE temp_vessel_last_ts;
