@@ -1,3 +1,9 @@
+/* 
+    Create the fixture tables where the fixtures data will be imported, and import the data.
+    We will create and load one table per csv file. The below example is for the year 2022.
+    Make sure you change the name of the table, along with the file path.
+*/
+
 CREATE TABLE import.imported_fixtures_data_2022 (
     id bigserial,
     fixture_date date,
