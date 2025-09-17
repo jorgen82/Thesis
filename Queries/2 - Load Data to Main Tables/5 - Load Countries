@@ -1,3 +1,9 @@
 CREATE TABLE context_data.countries AS
 SELECT id, country, alpha2_code, alpha3_code, numeric_code, latitude, longitude
 FROM import.imported_countries_data;
+
+ALTER TABLE context_data.countries
+ADD geom geometry;
+
+UPDATE context_data.countries
+SET geom = ST_SetSRID (ST_MakePoint (longitude , latitude) ,4326);
