@@ -15,4 +15,4 @@ FROM 'J:/OneDrive/Documents/Personal Files/Academic/Demokritos/Thesis/Complex Ev
 DELIMITER ',' CSV HEADER QUOTE '"';
 
 
-UPDATE context_data.countries SET country = 'The Bahamas' where country = 'Bahamas';
+UPDATE import.imported_countries_data SET country = 'The Bahamas' where country = 'Bahamas';
