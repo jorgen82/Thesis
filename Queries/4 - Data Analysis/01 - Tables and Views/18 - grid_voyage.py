@@ -9,7 +9,7 @@ DB_CONFIG = {
     "port": 5432,
     "dbname": "thesis_v5",
     "user": "postgres",
-    "password": "Skat0malakas"
+    "password": "xxxxxxx"
 }
 
 # Batch configuration
@@ -100,3 +100,4 @@ try:
 
 except Exception as e:
     print(f"An error occurred: {e}")
+
