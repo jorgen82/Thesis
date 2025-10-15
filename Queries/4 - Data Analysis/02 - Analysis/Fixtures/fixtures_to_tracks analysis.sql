@@ -39,7 +39,8 @@ SELECT v.vessel_type, count(distinct t.track_id) as total_records
 FROM data_analysis.fixtures_to_tracks t
 INNER JOIN ais.vessel v on v.id = t.vessel_id
 INNER JOIN ais.ais a on a.vessel_id = t.vessel_id and a.ts >= t.track_start and a.ts <= t.track_end
-WHERE t.track_origin_port_id IS NOT NULL AND t.track_destination_port_id IS NOT NULL
+WHERE t.track_origin_port_id IS NOT NULL 
+	AND t.track_destination_port_id IS NOT NULL
 GROUP BY v.vessel_type;
 
 
