@@ -1,4 +1,4 @@
-/* Day apart between consecutive identified port calls. */
+/* Calculate how many are the days between consecutive identified port calls. */
 
 WITH time_diff AS (
 	SELECT *
