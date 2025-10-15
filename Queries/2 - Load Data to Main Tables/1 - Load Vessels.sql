@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS ais.vessel (
 INSERT INTO ais.vessel (vessel_name, mmsi, imo, vessel_category)
 SELECT vesselname, mmsi, imo, vessel_category
     FROM (
-    SELECT vesselname, mmsi, CASE WHEN LENGTH(REPLACE(imo, 'IMO', '')) > 7 THEN LEFT(REPLACE(imo, 'IMO', ''), 7) ELSE REPLACE(imo, 'IMO', '') END as imo  -- We remove the IMO text and some padding from some imo records
+    SELECT vesselname, mmsi, CASE WHEN LENGTH(REPLACE(imo, 'IMO', '')) > 7 THEN LEFT(REPLACE(imo, 'IMO', ''), 7) ELSE REPLACE(imo, 'IMO', '') END as imo  -- We remove the IMO text and some padding from some imo records, keeping only the actual imo number
         ,vessel_category
     FROM import.imported_ais_data_2019
 	UNION
