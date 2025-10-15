@@ -6,6 +6,9 @@ CREATE TABLE context_data.countries AS
 SELECT id, country, alpha2_code, alpha3_code, numeric_code, latitude, longitude
 FROM import.imported_countries_data;
 
+
+/* Add necessary constraints and indexes */
+
 ALTER TABLE context_data.countries
 ADD geom geometry;
 
