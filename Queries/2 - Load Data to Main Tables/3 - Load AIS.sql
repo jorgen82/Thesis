@@ -1,3 +1,7 @@
+/* 
+	This script will load the AIS data table (ais.ais)
+*/
+
 CREATE TABLE IF NOT EXISTS ais.ais (
     id bigserial
     ,vessel_id INTEGER
@@ -11,7 +15,6 @@ CREATE TABLE IF NOT EXISTS ais.ais (
     ,draft NUMERIC(3,1)
     ,ts timestamp
 );
---TRUNCATE ais.ais RESTART IDENTITY CASCADE;
 
 INSERT INTO ais.ais (vessel_id, latitude, longitude, geom, speed_over_ground, course_over_ground, heading, status, draft, ts)
 SELECT 
@@ -39,6 +42,7 @@ LEFT JOIN ais.vessel s on s.vessel_name = a.vesselname
 	AND s.vessel_category = a.vessel_category;
 
 
+-- Add necessary constrains and indexes
 ALTER TABLE ais.ais
 ADD CONSTRAINT fk_ais_vessel_id
 FOREIGN KEY (vessel_id) REFERENCES ais.vessel(id)
