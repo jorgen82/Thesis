@@ -1,3 +1,7 @@
+/* 
+	This script will load the Countries data table.
+*/
+
 CREATE TABLE context_data.countries AS
 SELECT id, country, alpha2_code, alpha3_code, numeric_code, latitude, longitude
 FROM import.imported_countries_data;
