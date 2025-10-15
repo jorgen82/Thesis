@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS ais.vessel (
     ,vessel_category varchar(10)
 );
 
-/* Insert some of the Vessel Info */
+/* Insert some of the Vessel Info to the Vessel table (only distinct records) */
 INSERT INTO ais.vessel (vessel_name, mmsi, imo, vessel_category)
 SELECT vesselname, mmsi, imo, vessel_category
     FROM (
