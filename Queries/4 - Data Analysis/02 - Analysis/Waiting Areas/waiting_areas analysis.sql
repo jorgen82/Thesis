@@ -8,7 +8,7 @@ WITH base AS (
         COUNT(t.vessel_id) AS total_stops
     FROM data_analysis.waiting_areas_traffic t
     INNER JOIN context_data.ports p ON p.id = t.to_port_id
-    WHERE p.port_name = 'GALVESTON'
+    WHERE p.port_name = 'GALVESTON'   -- Change the port to the one you would like to investigate
     GROUP BY p.port_name, t.waiting_areas_cluster_id
 ),
 pct AS (
@@ -144,3 +144,4 @@ INNER JOIN context_data.ports p on p.id = t.to_port_id
 WHERE p.port_name in ('CORPUS CHRISTI', 'PORT INGLESIDE', 'PORT ARANSAS', 'ROCKPORT')
     AND t.from_port_stops_grouped_id IS NOT NULL
     AND waiting_areas_cluster_id not in (select cid_dbscan from galveston_areas)
+
