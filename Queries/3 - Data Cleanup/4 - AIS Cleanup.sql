@@ -121,10 +121,11 @@ DECLARE del_count BIGINT;
 DECLARE vessels_not_rechecked BIGINT := 0;
 DECLARE cur_ts varchar;
 BEGIN
+	-- Used only for displaying information of the progress - Display the script start time
 	SELECT TO_CHAR(clock_timestamp(), 'YYYY/MM/DD HH24:MI:SS') INTO cur_ts;
 	RAISE NOTICE '%: Script Begins', cur_ts;
 
-	-- Step 0: Initialize temporary table to store previous timestamps per vessel
+	-- Initialize temporary table to store previous timestamps per vessel
 	IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_type = 'LOCAL TEMPORARY' AND table_name = '_to_be_deleted') THEN
 		DROP TABLE temp_ais_to_be_deleted;
 		raise notice '%: Temp Table temp_ais_to_be_deleted dropped', cur_ts;
@@ -159,12 +160,12 @@ BEGIN
 	);
 	raise notice '%: Table test_ais_deleted_records created', cur_ts;
 
+	--We are creating the temp_vessel_last_ts in order to have the 1st ts of each vessel. This will make our later iteration faster, avoiding checking all the AIS for each vessel.
 	IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_type = 'LOCAL TEMPORARY' AND table_name = 'temp_vessel_last_ts') THEN
 		DROP TABLE temp_vessel_last_ts;
 		raise notice '%: Temp Table temp_vessel_last_ts dropped', cur_ts;
 	END IF;
 
-	--We are creating this table in order to have the 1st ts of each vessel. This will make our later iteration faster, avoiding checking all the AIS for each vessel.
 	CREATE TEMP TABLE temp_vessel_last_ts AS
     SELECT vessel_id, MIN(ts) AS last_ts
     FROM test_ais
@@ -172,15 +173,15 @@ BEGIN
 	
     LOOP
 		BEGIN
-	        -- Step 1: Identify records to be deleted in one pass
+	        -- Identify records to be deleted in one pass
 	        WITH speed_check_lateral AS (
 	            SELECT curr.id AS curr_id, curr.vessel_id, curr.ts as curr_ts,
 	                (ST_DistanceSphere(curr.geom, prev.geom) / 1852) / 
 	                	(EXTRACT(EPOCH FROM (curr.ts - prev.ts)) / 3600) AS speed_kn
 	            FROM test_ais curr
-				INNER JOIN temp_vessel_last_ts vlt
+				INNER JOIN temp_vessel_last_ts vlt  --Check each vessel from its first ts
 	                ON curr.vessel_id = vlt.vessel_id AND curr.ts >= vlt.last_ts
-	            INNER JOIN LATERAL (
+	            INNER JOIN LATERAL (  --Getting the previous AIS data, based on the timestamp
 	                SELECT prev.id, prev.ts, prev.geom
 	                FROM test_ais prev
 	                WHERE prev.vessel_id = curr.vessel_id
@@ -189,7 +190,7 @@ BEGIN
 	                LIMIT 1
 	            ) prev ON true
 	        ),
-			speed_check_lag AS (
+			speed_check_lag AS ( --Find the speed that needs to travel from the previous to the current point
 	            SELECT id as curr_id, vessel_id, curr_ts
 	                ,CASE 
 	                    WHEN curr_ts = pre_ts THEN cur_speed 
@@ -207,10 +208,10 @@ BEGIN
 	                INNER JOIN temp_vessel_last_ts vlt ON t.vessel_id = vlt.vessel_id AND t.ts >= vlt.last_ts
 	            ) subquery
 	        ),
-	        ranked_deletions AS (
+	        ranked_deletions AS (  --Find the ids for the records that have a calculated speed>20 knots
 	            SELECT curr_id AS id,
 	                   ROW_NUMBER() OVER (PARTITION BY vessel_id ORDER BY curr_ts ASC) AS rank
-	            FROM speed_check_lag   -- We will use the lag check since its a lot faster than join lateral. The lag would not work if we had no removed the duplicates earlier
+	            FROM speed_check_lag   -- We will use the lag check since its a lot faster than join lateral. This method would not work if we had no removed the duplicates earlier
 	            WHERE speed_kn > 20
 	        ),
 	        to_delete AS (
@@ -224,28 +225,29 @@ BEGIN
 	        SELECT id
 	        FROM to_delete;
 		
-	        -- Step 2: Count the records flagged for deletion
+	        -- Used only for displaying information of the progress - Count the records flagged for deletion
 	        SELECT COUNT(*) INTO del_count FROM temp_ais_to_be_deleted;
 			SELECT TO_CHAR(clock_timestamp(), 'YYYY/MM/DD HH24:MI:SS') INTO cur_ts;
 	        RAISE NOTICE '%: Records for deletion: %', cur_ts, del_count;
 	
-	        -- Step 3: Exit if no records are marked for deletion
+	        -- Exit if no records are marked for deletion
 	        IF del_count = 0 THEN
 				SELECT TO_CHAR(clock_timestamp(), 'YYYY/MM/DD HH24:MI:SS') INTO cur_ts;
 	            RAISE NOTICE '%: No records to delete. Exit...', cur_ts;
 	            EXIT;
 	        END IF;
 	
-	        -- Step 4: Log the deleted IDs
+	        -- Log the deleted IDs
 	        INSERT INTO test_ais_deleted_records (id, vessel_id, latitude, longitude, geom, speed_over_ground, course_over_ground, heading, status, draft, ts)
 	        SELECT a.id, vessel_id, latitude, longitude, geom, speed_over_ground, course_over_ground, heading, status, draft, ts
 	        FROM temp_ais_to_be_deleted tmp
 			INNER JOIN test_ais a on a.id = tmp.id;
-			
+
+			-- Used only for displaying information of the progress
 			SELECT TO_CHAR(clock_timestamp(), 'YYYY/MM/DD HH24:MI:SS') INTO cur_ts;
 			RAISE NOTICE '%: Log the deleted IDs', cur_ts;
 
-			-- Step 5: Update the 'temp_vessel_last_ts' to reflect the new starting point (previous timestamp)
+			-- Update the 'temp_vessel_last_ts' to reflect the new starting point (previous timestamp)
 	        WITH deleted_records AS (
 	            SELECT id, vessel_id, ts
 	            FROM test_ais
@@ -264,29 +266,29 @@ BEGIN
 			SET last_ts = updated_last_ts.new_last_ts
 			FROM updated_last_ts
 			WHERE temp_vessel_last_ts.vessel_id = updated_last_ts.vessel_id;
-	     
+
+			-- Used only for displaying information of the progress - Vessels that have no more data to check
 			vessels_not_rechecked := vessels_not_rechecked + 
 				(SELECT COALESCE(COUNT(*), 0) FROM temp_vessel_last_ts WHERE last_ts IS NULL);
 			SELECT TO_CHAR(clock_timestamp(), 'YYYY/MM/DD HH24:MI:SS') INTO cur_ts;
 			RAISE NOTICE '%: Vessels not re-checked = %', cur_ts, vessels_not_rechecked;
-			
+
+			-- Delete the vessels that have no more data to check
 			DELETE
 			FROM temp_vessel_last_ts
 			WHERE last_ts IS NULL;
 			
-			SELECT TO_CHAR(clock_timestamp(), 'YYYY/MM/DD HH24:MI:SS') INTO cur_ts;
-			RAISE NOTICE '%: Update the temp_vessel_last_ts', cur_ts;
-			
-	        -- Step 6: Delete flagged records from `test_ais`
+	        -- Delete the flagged records from `test_ais`
 	        DELETE FROM test_ais
 	        WHERE id IN (SELECT id FROM temp_ais_to_be_deleted);
-	
+
+			-- Used only for displaying information of the progress
 	        SELECT TO_CHAR(clock_timestamp(), 'YYYY/MM/DD HH24:MI:SS') INTO cur_ts;
 			RAISE NOTICE '%: Records deleted from test_ais.', cur_ts;
 			
 			RAISE NOTICE '-----------------------------------------------------------------';
 			
-	        -- Step 7: Clear the temporary deletion table
+	        -- Clear the temporary deletion table
 	        TRUNCATE TABLE temp_ais_to_be_deleted;
 		
 		EXCEPTION
@@ -309,7 +311,7 @@ END $$;
 /************** Check if outliers removed ****************/
 /*********************************************************/
 
--- Below there are the 2 methods for checking. One is the join lateral and the seconf the lag (faster)
+-- Below there are the 2 methods for checking. One is the join lateral and the second the lag (faster)
 WITH speed_check AS (
 	SELECT curr.id AS curr_id, prev.id as prev_id, curr.ts as curr_ts, prev.ts as prev_ts, curr.geom as curr_geom, prev.geom as prev_geom,
 		(ST_DistanceSphere(curr.geom, prev.geom) / 1852) / 
@@ -350,6 +352,8 @@ WHERE speed_kn > 20
 /*********************************************************/
 /************ Remove Outliers from AIS table *************/
 /*********************************************************/
+
+-- Cleanup the ais.ais by removing all the ids we marked as outliers on the test_ais_deleted_records table. We kept it as commented to avoid accidental deletion.
 
 --DELETE FROM ais.ais 
 --WHERE id in (
