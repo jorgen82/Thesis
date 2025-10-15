@@ -1,6 +1,6 @@
-/******************************************************************************************/
-/* Update country column if imported fixtures                                             */
-/******************************************************************************************/
+/************************************************************************************************************************************************************/
+/* Update country column if imported fixtures. This manual update is done for the ports that the Google API could not identify, and its based on research   */
+/************************************************************************************************************************************************************/
 UPDATE fixtures.fixtures_data SET country = 'Nigeria' WHERE port_load = 'ABO';
 UPDATE fixtures.fixtures_data SET country = 'Nigeria' WHERE port_load = 'AGBAMI TERMINAL';
 UPDATE fixtures.fixtures_data SET country = 'Nigeria' WHERE port_load = 'AKPO TERMINAL';
@@ -175,9 +175,9 @@ WHERE ID IN (
 	);
 
 
-/****************************************/
-/* Duplicate Fixtures (diff fix date)   */
-/****************************************/
+/************************************************************************************************************************************/
+/* Cleanup od Duplicate Fixtures (ones having different fixture date), by keeping only the ones with the most recent fixture date   */
+/************************************************************************************************************************************/
 DELETE FROM fixtures.fixtures_data
 WHERE ID IN (
 	SELECT ID
@@ -196,9 +196,9 @@ WHERE ID IN (
 );
 
 
-/****************************************/
-/* Fixtures of vessels with same name   */
-/****************************************/
+/**************************************************************************************************************************************************/
+/* Delete the fixtures for the vessels that have not unique vessel name (since we will not be able to correctly match the fixture to the vessel   */
+/**************************************************************************************************************************************************/
 DELETE FROM fixtures.fixtures_data
 WHERE vessel_name IN (
 	SELECT vessel_name
@@ -206,9 +206,9 @@ WHERE vessel_name IN (
 )
 
 
-/****************************************/
-/* Update vessel_id		        		 */
-/****************************************/
+/********************************************************************/
+/* After the cleanup, we will update vessel_id of the fixture table */
+/********************************************************************/
 UPDATE fixtures.fixtures_data f
 SET vessel_id = v.id
 FROM ais.vessel v
