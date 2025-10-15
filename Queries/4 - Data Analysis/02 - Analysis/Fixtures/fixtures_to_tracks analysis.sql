@@ -21,7 +21,7 @@ WHERE track_destination_port_id is not null
 ORDER BY 1
 
 
--- Measures for All Tracks
+-- Calcualte some basic measures for All Tracks
 SELECT v.vessel_type as "Vessel Type", count(*) as "Total Records"
 	,AVG(distance_from_origin_port_nmi) as "Dist from Origin Port (nmi)", AVG(distance_to_destination_port_nmi) as "Dist to Destination Port (nmi)"
 	,AVG(travel_speed_from_origin_port_kn) as "Travel Speed from Origin Port (kn)", AVG(travel_speed_to_destination_port_kn) as "Travel Speed to Destination Port (kn)"
@@ -30,7 +30,7 @@ INNER JOIN ais.vessel v on v.id = t.vessel_id
 GROUP BY v.vessel_type
 
 
--- Measures for Port to Port Tracks
+-- Calcualte some basic measures for Port to Port Tracks
 SELECT v.vessel_type, count(distinct t.track_id) as total_records
 	,AVG(distance_from_origin_port_nmi) as distance_from_origin_port_nmi, AVG(distance_to_destination_port_nmi) as distance_to_destination_port_nmi
 	,AVG(travel_speed_from_origin_port_kn) as travel_speed_from_origin_port_kn, AVG(travel_speed_to_destination_port_kn) as travel_speed_to_destination_port_kn
