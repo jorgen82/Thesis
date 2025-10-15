@@ -85,6 +85,7 @@ WHERE vrd.rank = 1
 	AND v.imo = vrd.imo;
 
 
+/* Add necessary constraints */
 ALTER TABLE ais.vessel
 ADD CONSTRAINT pkey_vessel_id PRIMARY KEY (id);
 
