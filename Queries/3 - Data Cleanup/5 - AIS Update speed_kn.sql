@@ -9,18 +9,18 @@ CREATE INDEX idx_ais_id ON ais.ais(id);
 WITH speed AS (
 	SELECT * 
 		,CASE
-			WHEN ts_cur = ts_pre AND speed_cur < 20 THEN speed_cur 
-			WHEN ts_pre is null AND speed_cur < 20 then speed_cur
-			ELSE (ST_DistanceSphere(p_pre, p_cur) / 1852) / (extract(epoch FROM (ts_cur - ts_pre)) / 3600) 
+			WHEN ts_cur = ts_pre AND speed_cur < 20 THEN speed_cur -- if there is one record (previous ts = current ts) and the speed_over_ground < 20, then keep the speed_over_ground
+			WHEN ts_pre is null AND speed_cur < 20 then speed_cur  -- if the current ts is the first and the speed_over_ground < 20, then keep the speed_over_ground
+			ELSE (ST_DistanceSphere(p_pre, p_cur) / 1852) / (extract(epoch FROM (ts_cur - ts_pre)) / 3600)  -- else calculate the speed based on the timestamp and geom of the previous and current points
 		END as speed_kn
 	FROM (
 		SELECT id
 			,vessel_id
 			,speed_over_ground AS speed_cur
 			,ts AS ts_cur
-			,LAG(ts) OVER (PARTITION BY vessel_id ORDER BY ts) AS ts_pre
+			,LAG(ts) OVER (PARTITION BY vessel_id ORDER BY ts) AS ts_pre   -- Previous timestamp
 			,geom AS p_cur
-			,LAG(geom) OVER (PARTITION BY vessel_id ORDER BY ts) AS p_pre
+			,LAG(geom) OVER (PARTITION BY vessel_id ORDER BY ts) AS p_pre  -- Previous point
 		FROM ais.ais
 		)
 	WHERE ts_cur != ts_pre
