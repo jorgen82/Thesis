@@ -29,7 +29,7 @@ WHERE false;
 
 
 -- Cleanup procedure
--- The test table will be checked, the duplicates will be removed and moved to another table
+-- The test_ais table will be checked, the duplicates will be removed and stored on the test_ais_duplicates for safekeeping and checking
 
 DO $$
 DECLARE del_count BIGINT := 0;
@@ -48,7 +48,7 @@ BEGIN
 	        prev.geom AS prev_geom,
 	        nxt.geom AS next_geom
 	    FROM test_ais curr
-		INNER JOIN LATERAL (
+		INNER JOIN LATERAL (  --Getting the previous AIS data, based on the timestamp
 			SELECT prev.id, prev.ts, prev.geom
 			FROM test_ais prev
 			WHERE prev.vessel_id = curr.vessel_id
@@ -56,7 +56,7 @@ BEGIN
 			ORDER BY prev.ts DESC
 			LIMIT 1
 			) prev ON true
-		INNER JOIN LATERAL (
+		INNER JOIN LATERAL (  --Getting the next AIS data, based on the timestamp
 			SELECT nxt.id, nxt.ts, nxt.geom
 			FROM test_ais nxt
 			WHERE nxt.vessel_id = curr.vessel_id
@@ -64,7 +64,7 @@ BEGIN
 			ORDER BY nxt.ts 
 			LIMIT 1
 			) nxt ON true
-	    WHERE (curr.vessel_id, curr.ts) IN (
+	    WHERE (curr.vessel_id, curr.ts) IN (  --We rule out the cases with one AIS records only
 	        SELECT vessel_id, ts 
 	        FROM test_ais
 	        GROUP BY vessel_id, ts
@@ -72,7 +72,7 @@ BEGIN
 	    )
 	),
 	distance_calculation AS (
-	    -- Calculate distances to previous and next points
+	    -- Based on the previous, we calculate distances form the current to previous and next points
 	    SELECT 
 	        id, 
 	        vessel_id, 
@@ -138,7 +138,7 @@ BEGIN
 	raise notice '%: Table temp_ais_to_be_deleted created', cur_ts;
 
 
-	-- Create table to store the deleted values
+	-- Create table to store the deleted values for safekeeping and checking
 	IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'test_ais_deleted_records') THEN
 		DROP TABLE test_ais_deleted_records;
 		raise notice '%: Table test_ais_deleted_records dropped', cur_ts;
@@ -163,7 +163,8 @@ BEGIN
 		DROP TABLE temp_vessel_last_ts;
 		raise notice '%: Temp Table temp_vessel_last_ts dropped', cur_ts;
 	END IF;
-	
+
+	--We are creating this table in order to have the 1st ts of each vessel. This will make our later iteration faster, avoiding checking all the AIS for each vessel.
 	CREATE TEMP TABLE temp_vessel_last_ts AS
     SELECT vessel_id, MIN(ts) AS last_ts
     FROM test_ais
