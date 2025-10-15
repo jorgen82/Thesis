@@ -1,3 +1,6 @@
+/* 
+	We will get some details and some measures for the Fixtures which could be matched to a track.
+*/
 
 -- Basic Fixtures to Track Matching Information
 SELECT 1 as "#", 'Fixtures Matched to Port Stop' as metric, COUNT(*) as value
