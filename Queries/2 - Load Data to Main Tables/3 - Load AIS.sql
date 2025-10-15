@@ -42,7 +42,7 @@ LEFT JOIN ais.vessel s on s.vessel_name = a.vesselname
 	AND s.vessel_category = a.vessel_category;
 
 
--- Add necessary constrains and indexes
+/* Add necessary constraints and indexes */
 ALTER TABLE ais.ais
 ADD CONSTRAINT fk_ais_vessel_id
 FOREIGN KEY (vessel_id) REFERENCES ais.vessel(id)
