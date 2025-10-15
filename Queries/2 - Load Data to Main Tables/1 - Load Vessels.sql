@@ -40,7 +40,7 @@ SELECT vesselname, mmsi, imo, vessel_category
 GROUP BY vesselname, mmsi, imo, vessel_category;
 
 
-/* Insert the vessel lenght and width, based on the values that appeared most on the AIS data */
+/* Insert the vessel lenght and width, based on the values that appeared most on the AIS data. We will keep the most frequent ones, since we noticed that in a few records, these differs for the same vessel. */
 WITH vessels AS (
 	SELECT CASE WHEN LENGTH(REPLACE(imo, 'IMO', '')) > 7 THEN LEFT(REPLACE(imo, 'IMO', ''), 7) ELSE REPLACE(imo, 'IMO', '') END as imo
 		,vesselname, mmsi
