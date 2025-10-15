@@ -4,7 +4,9 @@ FROM ais.vessel
 WHERE (vessel_category = 'Dry' AND vessel_name not in (SELECT DISTINCT vessel_name FROM fixtures.fixtures_data))
 
 
-/* Set calculated_design_draught to null where the thresholds are not met */
+/* Set calculated_design_draught to null where the thresholds are not met. The thresholds created after research. */
+/* THIS IS NOT A COLUMN THAT WE USED ON OUR RESEARCH AFTER ALL, SO THIS STEP CAN BE SKIPPED                       */
+	
 UPDATE ais.vessel
 SET calculated_design_draught = null
 WHERE 
