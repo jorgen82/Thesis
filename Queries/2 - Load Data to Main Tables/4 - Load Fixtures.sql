@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS fixtures.fixtures_data (
 INSERT INTO fixtures.fixtures_data (vessel_id, fixture_date, vessel_name, vessel_built, vessel_cubic_capacity, vessel_dwt, vessel_hull_type, cargo_qty, cargo, cargo_type
     ,charterer, laycan_from, laycan_to, port_load, port_delivery, port_discharge, port_redelivery, freight_rate, freight_unit, vessel_owner, vessel_type, vessel_category)
 SELECT 
-    null as "vessel_id"  --We keep this column null for now. It will be updated on a later stage
+    null as "vessel_id"  --We keep this column null for now. It will be updated on a later stage, and after the fixtures cleanup (3 - Data Cleanup/2 - Fixtures Cleanup.sql)
 		,fixture_date,vessel_name,vessel_built,vessel_cubic_capacity,vessel_dwt,vessel_hull_type,cargo_qty,cargo,cargo_type,charterer,laycan_from,laycan_to
 	    ,port_load,port_delivery,port_discharge,port_redelivery,freight_rate,freight_unit,vessel_owner,vessel_type,vessel_category
 FROM (
