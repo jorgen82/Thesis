@@ -12,26 +12,27 @@ ADD CONSTRAINT pkey_ports_id PRIMARY KEY (id);
 CREATE INDEX idx_ports_id ON context_data.ports (id);
 
 
-/* Fixing issue with different port mapped to the same coordinates */
+/* Fixing issue with different port mapped to the same coordinates, by aggregating the port_name */
 CREATE TEMP TABLE temp_concatenated_ports AS
 SELECT 
-    min(id) AS id,
+    min(id) AS id, --keep the first id only, of the ports with the same geom
     geom,
     STRING_AGG(port_name, ' / ') AS concatenated_names
 FROM context_data.ports
 GROUP BY geom;
 
-UPDATE context_data.ports p
+UPDATE context_data.ports p  --update the records with the aggregated names
 SET port_name = c.concatenated_names
 FROM temp_concatenated_ports c
 WHERE p.id = c.id;
 
-DELETE FROM context_data.ports p
+DELETE FROM context_data.ports p  --delete the records with the same geom, except the first ones (with minimum id we stored on temp_concatenated_ports)
 USING temp_concatenated_ports c
 WHERE p.geom = c.geom
 AND p.id <> c.id;
 
 DROP TABLE temp_concatenated_ports;
+
 
 /* Fix SOUTHWEST PASS wrong coordinates */
 UPDATE context_data.ports 
@@ -53,21 +54,3 @@ FROM context_data.countries c
 WHERE c.alpha2_code = p.country
 
 
--- remove duplicate port data
-
-/*
-DELETE FROM context_data.ports
-USING (
-	SELECT ROW_NUMBER () OVER (PARTITION BY geom ORDER BY index_no) "r"
-		,id 
-	FROM context_data.ports  
-	WHERE geom IN (
-		SELECT geom
-		FROM context_data.ports 
-		GROUP BY geom
-		HAVING COUNT(id) > 1
-		) 
-	) del
-WHERE del.r>1
-	AND ports.gid = del.gid
-*/
