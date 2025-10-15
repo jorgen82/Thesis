@@ -1,4 +1,4 @@
-/* Basic Statistics for each Port Stop */
+/* Create a view with basic statistics for each Port Stop */
 
 CREATE VIEW data_analysis.vw_port_stops_stats
 AS
