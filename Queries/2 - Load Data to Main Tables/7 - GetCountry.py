@@ -1,11 +1,13 @@
+### We will utilize the Google API in order to identify the Country based on the port_load of the Fixtures table
+
 import pandas as pd
 import psycopg2
 import googlemaps
 
-table_name = 'fixtures.fixtures_data'
+table_name = 'fixtures.fixtures_data'  #Change this to reflect the fixtures table
 
 # Initialize the API client
-gmaps = googlemaps.Client(key='xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
+gmaps = googlemaps.Client(key='xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')  #Use your API key
 
 # Database connection details
 db_config = {
@@ -71,6 +73,7 @@ def update_country(dataframe, table_name):
             cursor.close()
             connection.close()
 
+# If country column does not exist in the fixtures table, we will add it
 def add_country_column_if_not_exists(table_name):
     try:
         connection = psycopg2.connect(**db_config)
@@ -109,7 +112,7 @@ def process_table(table_name):
     # Add a new column for countries
     locations_df['country'] = locations_df['port_load'].apply(get_country)
     
-    # Update USG to United States
+    # Update USG to United States - USG is used commonly, so we will fix this record here
     locations_df.loc[locations_df['port_load'] == 'USG', 'country'] = 'United States'
     
     # Update the database with country information
@@ -120,3 +123,4 @@ def process_table(table_name):
 process_table(table_name)
 
 #get_country('SU TU DEN TERMINAL')
+
