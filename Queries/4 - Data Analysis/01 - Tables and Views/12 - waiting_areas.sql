@@ -24,6 +24,9 @@ FROM (
             CAST(s.duration_s /60 AS decimal(11,3)) AS duration_minutes,
             CAST(s.duration_s /3600 AS decimal(12,4)) AS duration_hours,
 			s.centr, s.avg_dist_centroid, s.max_dist_centroid,
+			--When the Harbor Type = Coastal then set the eps = 3500
+			--When the Harbor Type = River and the point is in the Ocean (and not a river area) then set the eps = 1000. For this we utilize the Ocean geometry. A port identified as river, might have waiting areas in the open ocen, therefore we make this distinction
+			--Otherwise set the eps=3500
 			CASE WHEN p.harbortype LIKE 'C%' THEN 3500 WHEN p.harbortype LIKE 'R%' AND NOT ST_Within(s.centr, (SELECT geometry FROM context_data.oceans WHERE featurecla = 'Ocean')) THEN 1000 ELSE 3500 END as eps
 		FROM data_analysis.stops s
 		LEFT JOIN data_analysis.port_stops ps ON ps.vessel_id = s.vessel_id
@@ -50,7 +53,7 @@ CREATE INDEX idx_waiting_points_centr ON data_analysis.waiting_points USING gist
 */
 CREATE TABLE data_analysis.waiting_areas AS
 SELECT cid_dbscan,
-	CASE WHEN cid_dbscan < 1000000 THEN 'River' WHEN cid_dbscan >= 1000000 AND cid_dbscan < 2000000 THEN 'Coastal' ELSE 'Other' END as river_coastal,
+	CASE WHEN cid_dbscan < 1000000 THEN 'River' WHEN cid_dbscan >= 1000000 AND cid_dbscan < 2000000 THEN 'Coastal' ELSE 'Other' END as river_coastal,  --This is based on the logic we utilize previously on setting the cid_dbscan
 	ST_SetSRID(ST_ConvexHull(st_collect(centr)),4326) as convex_hull ,
 	ST_SetSRID(data_analysis.safe_concave_hull(st_collect(centr), 0.75), 4326) as concave_hull,
 	ST_SetSRID(ST_MinimumBoundingCircle(st_collect(centr)),4326) as bounding_circle ,
