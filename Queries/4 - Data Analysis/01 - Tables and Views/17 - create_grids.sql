@@ -30,7 +30,7 @@ SET centr = ST_Centroid(geom);
 
 CREATE INDEX idx_grid_voyage_centr ON context_data.grid_voyage USING GIST (centr);
 
-
+/* THE BELOW QUERIES CAN SERVE DIFFERENT GRID TYPES AND KEPT FOR REFERENCE. USE THOSE IF NEEDED */
 /* Hexagon Grid of 6,2km (Area 99,87 km2) - We will use the GridOcean geometry - To be used to find paths between a position and the port (calculating potential ETA or other relevant metrics)
 CREATE TABLE context_data.grid_hex(id serial, geom geometry);
 
