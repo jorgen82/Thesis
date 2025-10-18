@@ -24,12 +24,13 @@ SELECT pv.port_id, pv.port_name, pv.country,
     SUM(nb_stops) / NULLIF(SUM(area_km2), 0) AS vessel_density,
     SUM(total_vessel_hours_waiting) AS total_vessel_hours_waiting,
     SUM(utilization_rate) AS utilization_rate,
+    --Calculate the distance in km (avg, min, max) of the Area to the Port, using the area centroid
     AVG(
         ST_Distance(
             geography(ST_SetSRID(wa.centr, 4326)),
             geography(ST_SetSRID(pv.geom, 4326))
         ) / 1000
-    ) AS port_distance_km,
+    ) AS port_distance_km, 
     MIN(
         ST_Distance(
             geography(ST_SetSRID(wa.centr, 4326)),
@@ -48,6 +49,7 @@ SELECT pv.port_id, pv.port_name, pv.country,
             geography(ST_SetSRID(pv.geom, 4326))
         ) / 1852
     ) AS port_distance_nm,
+    --Calculate the port congestion score - (avg waiting areas * total area stops)/distance to port in km
     SUM(
         (avg_duration_hours * nb_stops) / NULLIF(
             ST_Distance(
@@ -57,7 +59,7 @@ SELECT pv.port_id, pv.port_name, pv.country,
         0)
     ) AS port_congestion_score
 FROM data_analysis.waiting_areas wa
-INNER JOIN data_analysis.ports_voronoi pv ON ST_Within(wa.centr, pv.voronoi_zone)
+INNER JOIN data_analysis.ports_voronoi pv ON ST_Within(wa.centr, pv.voronoi_zone)    --Match an area to the port, using the area Voronio Tesselation
 INNER JOIN context_data.ports p ON p.id = pv.port_id
 GROUP BY pv.port_id, pv.port_name, pv.country;
 
@@ -71,7 +73,7 @@ GROUP BY pv.port_id, pv.port_name, pv.country;
 
 CREATE VIEW data_analysis.vw_waiting_areas_port_seasonal AS
 SELECT pv.port_id, pv.port_name, pv.country,
-    wa.temporal_cluster, wa."Year", wa.month_quarter, wa.year_month_quarter,
+    wa.temporal_cluster, wa."Year", wa.month_quarter, wa.year_month_quarter,  --add the temportal information
     MIN(river_coastal) AS river_coastal, 
     COUNT(cid_dbscan) AS total_areas,
     SUM(nb_stops) AS vessels,
@@ -86,6 +88,7 @@ SELECT pv.port_id, pv.port_name, pv.country,
     SUM(nb_stops) / NULLIF(SUM(area_km2), 0) AS vessel_density,
     SUM(total_vessel_hours_waiting) AS total_vessel_hours_waiting,
     SUM(utilization_rate) AS utilization_rate,
+    --Calculate the distance in km (avg, min, max) of the Area to the Port, using the area centroid
     AVG(
         ST_Distance(
             geography(ST_SetSRID(wa.centr, 4326)),
@@ -110,6 +113,7 @@ SELECT pv.port_id, pv.port_name, pv.country,
             geography(ST_SetSRID(pv.geom, 4326))
         ) / 1852
     ) AS port_distance_nm,
+    --Calculate the port congestion score - (avg waiting areas * total area stops)/distance to port in km
     SUM(
         (avg_duration_hours * nb_stops) / NULLIF(
             ST_Distance(
@@ -119,7 +123,7 @@ SELECT pv.port_id, pv.port_name, pv.country,
         0)
     ) AS port_congestion_score
 FROM data_analysis.waiting_areas_seasonal wa
-INNER JOIN data_analysis.ports_voronoi pv ON ST_Within(wa.centr, pv.voronoi_zone)
+INNER JOIN data_analysis.ports_voronoi pv ON ST_Within(wa.centr, pv.voronoi_zone)    --Match an area to the port, using the area Voronio Tesselation
 INNER JOIN context_data.ports p ON p.id = pv.port_id
 GROUP BY pv.port_id, pv.port_name, pv.country, wa.temporal_cluster, wa."Year", wa.month_quarter, wa.year_month_quarter;
 
@@ -157,4 +161,5 @@ INNER JOIN LATERAL (
 
 
 */
+
 
