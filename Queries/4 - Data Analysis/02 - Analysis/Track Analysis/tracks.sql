@@ -12,6 +12,8 @@ GROUP BY from_country, to_country
 ORDER BY 3 DESC
 
 /* Traffic between BS or MX and US per Vessel Type. Used in Section 5.2.2 */
+
+--Tracks from BS to US
 SELECT from_country, to_country--, COUNT(*) as traffic
 	,COUNT(CASE WHEN vessel_type = 'Aframax Tankers' THEN 1 END) AS "Aframax Tankers"
 	,COUNT(CASE WHEN vessel_type = 'Handysize Tankers' THEN 1 END) AS "Handysize Tankers" 
@@ -24,6 +26,7 @@ WHERE from_country = 'BS'
 	AND to_country = 'US'
 GROUP BY from_country, to_country
 UNION
+--Tracks from US to BS
 SELECT from_country, to_country--, COUNT(*) as traffic
 	,COUNT(CASE WHEN vessel_type = 'Aframax Tankers' THEN 1 END) AS "Aframax Tankers"
 	,COUNT(CASE WHEN vessel_type = 'Handysize Tankers' THEN 1 END) AS "Handysize Tankers" 
@@ -36,6 +39,7 @@ WHERE from_country = 'US'
 	AND to_country = 'BS'
 GROUP BY from_country, to_country
 UNION
+--Tracks from MX to US
 SELECT from_country, to_country--, COUNT(*) as traffic
 	,COUNT(CASE WHEN vessel_type = 'Aframax Tankers' THEN 1 END) AS "Aframax Tankers"
 	,COUNT(CASE WHEN vessel_type = 'Handysize Tankers' THEN 1 END) AS "Handysize Tankers" 
@@ -48,6 +52,7 @@ WHERE from_country = 'MX'
 	AND to_country = 'US'
 GROUP BY from_country, to_country
 UNION
+--Tracks from US to MX
 SELECT from_country, to_country--, COUNT(*) as traffic
 	,COUNT(CASE WHEN vessel_type = 'Aframax Tankers' THEN 1 END) AS "Aframax Tankers"
 	,COUNT(CASE WHEN vessel_type = 'Handysize Tankers' THEN 1 END) AS "Handysize Tankers" 
