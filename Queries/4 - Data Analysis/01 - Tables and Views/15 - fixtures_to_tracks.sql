@@ -11,33 +11,43 @@ CREATE TABLE data_analysis.fixtures_to_tracks AS
 		,ais.geom, t.track
 	FROM data_analysis.fixtures_to_port_stops fps
 	INNER JOIN fixtures.fixtures_data f on f.id = fps.fixture_id
-	INNER JOIN LATERAL (
+	--Get the 1st AIS position on the fixture date using LATERAL join. This finds the vessel's location at the start of the fixture day
+	INNER JOIN LATERAL (  
 		SELECT a.geom
 		FROM ais.ais a
 		WHERE a.vessel_id = fps.vessel_id
 			AND ts::date = f.fixture_date
-		ORDER BY a.ts
+		ORDER BY a.ts --Get earliest position of the day
 		LIMIT 1
 	) ais ON (true)
-	LEFT JOIN data_analysis.tracks t ON t.vessel_id = fps.vessel_id
+	--Find tracks that were active during the fixture date. A track is considered active if fixture date falls between track start and end.
+	LEFT JOIN data_analysis.tracks t ON t.vessel_id = fps.vessel_id  
 		AND f.fixture_date >= t.ts_start
 		AND f.fixture_date <= t.ts_end
+	--Get port information for the track's origin and destination
 	LEFT JOIN data_analysis.port_stops_grouped ps_from ON ps_from.id = t.from_port_stops_grouped_id
 	LEFT JOIN data_analysis.port_stops_grouped ps_to ON ps_to.id = t.to_port_stops_grouped_id
+	--Calculate voyage metrics from Orgin Port to fixture date using LATERAL join. This analyzes the voyage segment from track start to fixture date
 	LEFT JOIN LATERAL (
 		SELECT SUM(distance_nmi) as distance_from_origin_port_nmi --, AVG(CASE WHEN speed_kn > 1 THEN speed_kn END) as travel_speed_from_origin_port_kn
+			--Calculate weighted average speed (excluding first point and very low speeds)
 			,SUM(CASE WHEN row != 1 AND speed_kn > 0.1 THEN speed_kn END * duration_sec) / SUM(CASE WHEN row != 1 AND speed_kn > 0.1 THEN duration_sec END) as travel_speed_from_origin_port_kn
 		FROM (
-			SELECT CASE WHEN ps_from.id IS NOT NULL 
+			SELECT 
+				--Calculate distance between consecutive AIS points in nautical miles
+				CASE 
+					WHEN ps_from.id IS NOT NULL --Only calculate if we have origin port
 					THEN ST_DistanceSphere(geom, LEAD(geom) OVER (PARTITION BY a.vessel_id ORDER BY a.ts)) / 1852
 					ELSE null
 				END as distance_nmi,
+				--Calculate speed between consecutive points in knots
 				CASE WHEN ps_from.id IS NOT NULL AND (LEAD(ts) OVER (PARTITION BY a.vessel_id ORDER BY a.ts)) IS NOT NULL
 					THEN (ST_DistanceSphere(geom, LEAD(geom) OVER (PARTITION BY a.vessel_id ORDER BY a.ts)) / 1852) 
         				/ (EXTRACT(EPOCH FROM (LEAD(ts) OVER (PARTITION BY a.vessel_id ORDER BY a.ts) - ts)) / 3600) 
 					ELSE null
 				END AS speed_kn,
 				duration_sec,
+				--Row number to identify first point (often excluded from speed calculations)
 				ROW_NUMBER() OVER (PARTITION BY vessel_id ORDER BY ts) as row
 			FROM ais.ais a
 			WHERE a.vessel_id = fps.vessel_id
@@ -45,14 +55,22 @@ CREATE TABLE data_analysis.fixtures_to_tracks AS
 				AND a.ts <= f.fixture_date
 			)
 	) calcs_origin_port on (true)
+	--Calculate voyage metrics from fixture point to destination port using LATERAL join  
+    --This analyzes the voyage segment from fixture date to track end
 	LEFT JOIN LATERAL (
-		SELECT SUM(distance_nmi) as distance_to_destination_port_nmi --, AVG(CASE WHEN speed_kn > 1 THEN speed_kn END) as travel_speed_to_destination_port_kn
+		SELECT 
+			SUM(distance_nmi) as distance_to_destination_port_nmi --, AVG(CASE WHEN speed_kn > 1 THEN speed_kn END) as travel_speed_to_destination_port_kn
+			--Calculate weighted average speed (excluding very low speeds)
 			,SUM(CASE WHEN speed_kn > 0.1 THEN speed_kn END * duration_sec) / SUM(CASE WHEN speed_kn > 0.1 THEN duration_sec END) as travel_speed_to_destination_port_kn
 		FROM (
-			SELECT CASE WHEN ps_to.id IS NOT NULL 
+			SELECT 
+				--Calculate distance between consecutive AIS points in nautical miles
+				CASE 
+					WHEN ps_to.id IS NOT NULL --Only calculate if we have destination port
 					THEN ST_DistanceSphere(geom, LEAD(geom) OVER (PARTITION BY a.vessel_id ORDER BY a.ts)) / 1852
 					ELSE null
 				END as distance_nmi,
+				--Calculate speed between consecutive points in knots
 				CASE WHEN ps_to.id IS NOT NULL AND (LEAD(ts) OVER (PARTITION BY a.vessel_id ORDER BY a.ts)) IS NOT NULL
 					THEN (ST_DistanceSphere(geom, LEAD(geom) OVER (PARTITION BY a.vessel_id ORDER BY a.ts)) / 1852) 
         				/ (EXTRACT(EPOCH FROM (LEAD(ts) OVER (PARTITION BY a.vessel_id ORDER BY a.ts) - ts)) / 3600) 
@@ -61,8 +79,8 @@ CREATE TABLE data_analysis.fixtures_to_tracks AS
 				duration_sec
 			FROM ais.ais a
 			WHERE a.vessel_id = fps.vessel_id
-				AND a.ts >= f.fixture_date 
-				AND a.ts <= t.ts_end
+				AND a.ts >= f.fixture_date  --From fixture date
+				AND a.ts <= t.ts_end		--To track end
 			)
 	) calcs_destination_port on (true);
 
