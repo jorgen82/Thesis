@@ -1,6 +1,17 @@
 /*********************************************************************************************************/
 /******************************************* First Analysis **********************************************/
 /*********************************************************************************************************/
+/** Used in Section 5.1.1 ********************************************************************************/
+/*********************************************************************************************************/
+
+DO $$  -- This is used to install the pg_trgm if not exists. We will use it for the similarity function
+BEGIN 
+    IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm') THEN
+        CREATE EXTENSION pg_trgm;
+    END IF;
+END $$;
+
+
 SELECT *
 FROM (
 	SELECT 1 as "#", 'Total fixtures data' as metric, count(*) as value
