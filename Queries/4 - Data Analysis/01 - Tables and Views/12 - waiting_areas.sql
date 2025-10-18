@@ -12,13 +12,13 @@
 
 
 /************************************************************************************************************/
-/* 										Points ans waiting areas											*/
+/* 										Points and waiting areas											*/
 /************************************************************************************************************/
 CREATE TABLE data_analysis.waiting_points AS
 SELECT *
 FROM (
 	SELECT vessel_id, stop_id, ts_begin, ts_end, duration_seconds, duration_minutes, duration_hours, centr, avg_dist_centroid, max_dist_centroid,
-		(ST_ClusterDBSCAN(ST_Transform(centr, 3857) ,eps := eps, minpoints := 10) OVER(PARTITION BY eps) + 1)  + (CASE WHEN eps = 1000 THEN 0 WHEN eps = 3500 THEN 1000000 ELSE 2000000 END) AS cid_dbscan
+		(ST_ClusterDBSCAN(ST_Transform(centr, 3857) ,eps := eps, minpoints := 10) OVER(PARTITION BY eps) + 1)  + (CASE WHEN eps = 1000 THEN 0 WHEN eps = 3500 THEN 1000000 ELSE 2000000 END) AS cid_dbscan -- We create a unique key based on the DBSCAN and the eps. We also used the eps since the DBSCAN will produce same cluster ids for the different cluster.
 	FROM (
 		SELECT s.vessel_id, s.id as stop_id, v.vessel_type, s.ts_begin, s.ts_end, s.duration_s AS duration_seconds,
             CAST(s.duration_s /60 AS decimal(11,3)) AS duration_minutes,
@@ -32,7 +32,7 @@ FROM (
 		LEFT JOIN ais.vessel v on v.id = s.vessel_id
 		LEFT JOIN data_analysis.ports_voronoi pv ON ST_Within(s.centr, pv.voronoi_zone)
 		LEFT JOIN context_data.ports p on p.id = pv.port_id
-		WHERE ps.id is NULL
+		WHERE ps.id is NULL  -- To make sure that the stop we cluster is not a port stop
 	)x
 ) y
 WHERE cid_dbscan IS NOT NULL;  
@@ -88,26 +88,26 @@ CREATE INDEX idx_waiting_areas_bounding_circle ON data_analysis.waiting_areas US
 
 
 /************************************************************************************************************/
-/* 				        Points ans waiting areas with seasonality information								*/
+/* 				        Points and waiting areas with seasonality information								*/
 /************************************************************************************************************/
 CREATE TABLE data_analysis.waiting_points_seasonal AS
 WITH RECURSIVE stops_clustered AS (
     SELECT id as waiting_points_id, cid_dbscan, vessel_id, stop_id, ts_begin, ts_end, ts_end AS original_ts_end, duration_seconds, duration_minutes, duration_hours, centr, avg_dist_centroid, max_dist_centroid
 	FROM data_analysis.waiting_points
 ),
-split_monthly AS (
-    SELECT
+split_monthly AS (  --Split periods by month
+    SELECT  --Take the original time period
 		waiting_points_id,
 		cid_dbscan,
         stop_id,
         vessel_id,
         ts_begin,
-        LEAST(ts_end, date_trunc('month', ts_begin + interval '1 month') - interval '1 second') AS ts_end,
+        LEAST(ts_end, date_trunc('month', ts_begin + interval '1 month') - interval '1 second') AS ts_end,  --Use LEAST() to cap the end time at the end of the current month
         original_ts_end,
         centr, avg_dist_centroid, max_dist_centroid
     FROM stops_clustered
     UNION ALL
-    SELECT
+    SELECT  --Create new records starting from where the previous segment ended
 		waiting_points_id,
 		cid_dbscan,
         stop_id,
@@ -144,10 +144,13 @@ CREATE INDEX idx_waiting_points_seasonal_centr ON data_analysis.waiting_points_s
 
 
 /*
-	Group based on the cluster id and calculate the Concave Hull, Convex Hull and Bounding Circle of each cluster.
+	Group based on the cluster id and the temporal_cluster (Year, Quarter, Month) and calculate the Concave Hull, Convex Hull and Bounding Circle of each cluster.
+	For each temporal cluster and cluster id, we calculate thing like duration (seconds/hours/minutes - min/max/avg), area_km2, vessel density and utilization rate.
+	Same code is basically repeaded using union, to calculate the different temportal cluster.
 */
 CREATE TABLE data_analysis.waiting_areas_seasonal AS
-SELECT cid_dbscan,
+SELECT   --temporal_cluster=year
+	cid_dbscan, 
 	'Year' as temporal_cluster,
     "Year",
     0 as month_quarter,
@@ -170,37 +173,41 @@ SELECT cid_dbscan,
 	avg(duration_hours) as avg_duration_hours,
 	CAST(
 		CASE WHEN count(*) = 1 THEN 0.0001
-	 		WHEN count(*) = 2 AND ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 = 0 THEN 0.0001
-			WHEN count(*) = 2 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 
-	 		WHEN count(*) > 2 AND ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000
+	 		WHEN count(*) = 2 AND ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 = 0 THEN 0.0001  --A single point has zero area geometrically. This prevents division by zero in density calculations.
+			WHEN count(*) = 2 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 --If two points form a zero-area circle (identical points), use 0.0001 km2. Otherwise use the area of the minimum bounding circle (Two points create a circle with the points on its diameter)
+	 		WHEN count(*) > 2 AND ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000  --Use concave hull with 0.75 target ratio (creates a tighter polygon). Else If concave hull has zero area (collinear points), use bounding circle area. Else Use the concave hull area.
 			ELSE ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 
 	 		END
 		as decimal(14,6)) as area_km2,
 	 CAST(
-	 	count(*) / 
-	 	(CASE WHEN count(*) = 1 THEN 0.0001
-	 		WHEN count(*) = 2 AND ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 = 0 THEN 0.0001
-			WHEN count(*) = 2 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 
-	 		WHEN count(*) > 2 AND ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000
-			ELSE ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 
-	 		END) 		
-	 	as decimal(30,2)) as vessel_density,
+        count(*) / 
+        NULLIF(
+            CASE WHEN count(*) = 1 THEN 0.0001
+                 WHEN count(*) = 2 AND ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 = 0 THEN 0.0001
+                 WHEN count(*) = 2 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 
+                 WHEN count(*) > 2 AND ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000
+                 ELSE ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 
+            END,
+        0)
+     	as decimal(30,2)) as vessel_density,
 	 CAST(avg(duration_hours) * count(*) as decimal(20,2)) as total_vessel_hours_waiting,
 	 CAST(
-	 	(count(*) / 
-	 	(CASE WHEN count(*) = 1 THEN 0.0001
-	 		WHEN count(*) = 2 AND ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 = 0 THEN 0.0001
-			WHEN count(*) = 2 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 
-	 		WHEN count(*) > 2 AND ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000
-			ELSE ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 
-	 		END
-	 	)) *  avg(duration_hours) 
-	 	as decimal(30,2)) as utilization_rate	
+        (count(*) / 
+        NULLIF(
+            CASE WHEN count(*) = 1 THEN 0.0001
+                 WHEN count(*) = 2 AND ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 = 0 THEN 0.0001
+                 WHEN count(*) = 2 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 
+                 WHEN count(*) > 2 AND ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000
+                 ELSE ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 
+            END,
+        0)) * avg(duration_hours) 
+    	as decimal(30,2)) as utilization_rate    
 FROM data_analysis.waiting_points_seasonal
 WHERE cid_dbscan IS NOT NULL
 GROUP BY cid_dbscan,"Year"
 UNION
-SELECT cid_dbscan,
+SELECT	--temporal_cluster=quarter
+	cid_dbscan,
 	'Year-Quarter' as temporal_cluster,
     "Year",
     "Quarter" as month_quarter,
@@ -230,30 +237,34 @@ SELECT cid_dbscan,
 	 		END
 		as decimal(14,6)) as area_km2,
 	 CAST(
-	 	count(*) / 
-	 	(CASE WHEN count(*) = 1 THEN 0.0001
-	 		WHEN count(*) = 2 AND ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 = 0 THEN 0.0001
-			WHEN count(*) = 2 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 
-	 		WHEN count(*) > 2 AND ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000
-			ELSE ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 
-	 		END) 		
-	 	as decimal(30,2)) as vessel_density,
+        count(*) / 
+        NULLIF(
+            CASE WHEN count(*) = 1 THEN 0.0001
+                 WHEN count(*) = 2 AND ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 = 0 THEN 0.0001
+                 WHEN count(*) = 2 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 
+                 WHEN count(*) > 2 AND ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000
+                 ELSE ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 
+            END,
+        0)
+     	as decimal(30,2)) as vessel_density,
 	 CAST(avg(duration_hours) * count(*) as decimal(20,2)) as total_vessel_hours_waiting,
 	 CAST(
-	 	(count(*) / 
-	 	(CASE WHEN count(*) = 1 THEN 0.0001
-	 		WHEN count(*) = 2 AND ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 = 0 THEN 0.0001
-			WHEN count(*) = 2 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 
-	 		WHEN count(*) > 2 AND ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000
-			ELSE ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 
-	 		END
-	 	)) *  avg(duration_hours) 
-	 	as decimal(30,2)) as utilization_rate	
+        (count(*) / 
+        NULLIF(
+            CASE WHEN count(*) = 1 THEN 0.0001
+                 WHEN count(*) = 2 AND ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 = 0 THEN 0.0001
+                 WHEN count(*) = 2 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 
+                 WHEN count(*) > 2 AND ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000
+                 ELSE ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 
+            END,
+        0)) * avg(duration_hours) 
+    	as decimal(30,2)) as utilization_rate    
 FROM data_analysis.waiting_points_seasonal
 WHERE cid_dbscan IS NOT NULL
 GROUP BY cid_dbscan,"Year","Quarter","Year-Quarter"
 UNION
-SELECT cid_dbscan,
+SELECT   --temporal_cluster=month 
+	cid_dbscan,
 	'Year-Month' as temporal_cluster,
     "Year",
     "Month" as month_quarter,
@@ -283,25 +294,28 @@ SELECT cid_dbscan,
 	 		END
 		as decimal(14,6)) as area_km2,
 	 CAST(
-	 	count(*) / 
-	 	(CASE WHEN count(*) = 1 THEN 0.0001
-	 		WHEN count(*) = 2 AND ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 = 0 THEN 0.0001
-			WHEN count(*) = 2 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 
-	 		WHEN count(*) > 2 AND ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000
-			ELSE ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 
-	 		END) 		
-	 	as decimal(30,2)) as vessel_density,
+        count(*) / 
+        NULLIF(
+            CASE WHEN count(*) = 1 THEN 0.0001
+                 WHEN count(*) = 2 AND ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 = 0 THEN 0.0001
+                 WHEN count(*) = 2 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 
+                 WHEN count(*) > 2 AND ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000
+                 ELSE ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 
+            END,
+        0)
+     	as decimal(30,2)) as vessel_density,
 	 CAST(avg(duration_hours) * count(*) as decimal(20,2)) as total_vessel_hours_waiting,
 	 CAST(
-	 	(count(*) / 
-	 	(CASE WHEN count(*) = 1 THEN 0.0001
-	 		WHEN count(*) = 2 AND ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 = 0 THEN 0.0001
-			WHEN count(*) = 2 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 
-	 		WHEN count(*) > 2 AND ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000
-			ELSE ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 
-	 		END
-	 	)) *  avg(duration_hours) 
-	 	as decimal(30,2)) as utilization_rate	
+        (count(*) / 
+        NULLIF(
+            CASE WHEN count(*) = 1 THEN 0.0001
+                 WHEN count(*) = 2 AND ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 = 0 THEN 0.0001
+                 WHEN count(*) = 2 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000 
+                 WHEN count(*) > 2 AND ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 = 0 THEN ST_Area(ST_Transform(ST_MinimumBoundingCircle(ST_Collect(centr)), 3857)) / 1000000
+                 ELSE ST_Area(ST_Transform(data_analysis.safe_concave_hull(st_collect(centr),0.75), 3857)) / 1000000 
+            END,
+        0)) * avg(duration_hours) 
+    	as decimal(30,2)) as utilization_rate    
 FROM data_analysis.waiting_points_seasonal
 WHERE cid_dbscan IS NOT NULL
 GROUP BY cid_dbscan,"Year","Month","Year-Month";
