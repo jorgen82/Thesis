@@ -1,7 +1,7 @@
 /*
     We create 2 views
     In the 1st we map the Waiting Areas to a Port, baed on the Area centroid and the Voronoi Tesselation of the Port
-    In the 2nd we will enxand the previous view, adding temporal information (year, quarter, month) 
+    In the 2nd we will expand the previous view, adding temporal information (year, quarter, month) 
 */
 
 /*
@@ -126,7 +126,7 @@ GROUP BY pv.port_id, pv.port_name, pv.country, wa.temporal_cluster, wa."Year", w
 
 
 
-/* Archive Queries
+/* Archive Queries - We did not use this apporach (it differentiates on how we match a waiting area to a port (previous uses the area voronoi and this uses the area geography)
 
 /*
     Match waiting areas to port, based on the area geography
@@ -157,3 +157,4 @@ INNER JOIN LATERAL (
 
 
 */
+
