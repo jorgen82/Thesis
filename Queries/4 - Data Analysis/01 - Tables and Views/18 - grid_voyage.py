@@ -1,4 +1,5 @@
-# Create the shortest path between the grids
+# Create the shortest path between the grids. 
+#We do this in python in order to easier handle batches (the full query takes a lot of time, and using batched allows us to start the iteration again from a specific batch
 
 import psycopg2
 from psycopg2.extras import execute_values
@@ -12,9 +13,9 @@ DB_CONFIG = {
     "password": "xxxxxxx"
 }
 
-# Batch configuration
+# Batch configuration. This is for Hexagons or 10km (the grid hexagons we already have). Adjust to your grids.
 BATCH_SIZE = 10
-DISTANCE_THRESHOLD = 11500
+DISTANCE_THRESHOLD = 11500  #This reflects the 10k size. We set it up a bit longer to be on the same side
 MAX_NEIGHBORS = 6
 
 # Connect to PostgreSQL
@@ -22,14 +23,21 @@ conn = psycopg2.connect(**DB_CONFIG)
 conn.autocommit = True  # ensures each INSERT is persisted immediately
 cur = conn.cursor()
 
-# Get max ID
+# Get max ID of our grids
 cur.execute("SELECT MAX(id) FROM context_data.grid_voyage;")
 max_id = cur.fetchone()[0]
 
 print(f"Max ID: {max_id}")
 
-# Loop over batches
-for start_id in range(237730, max_id + 1, BATCH_SIZE):
+# Check if table has data
+if max_id is None:
+    print("❌ Table is empty! No data to process.")
+    cur.close()
+    conn.close()
+    exit()
+    
+# Loop over batches, create the grid lines (ST_MakeLine), and commit the values of each batch.
+for start_id in range(1, max_id + 1, BATCH_SIZE):
     end_id = start_id + BATCH_SIZE - 1
     print(f"Processing batch {start_id}–{end_id}...")
 
@@ -73,6 +81,7 @@ conn.close()
 print("🎉 Done!")
 
 
+# Create indexes when the table load is finished
 print("*** Creating Table Indexes ***")
 
 sql_statements = [
@@ -100,4 +109,5 @@ try:
 
 except Exception as e:
     print(f"An error occurred: {e}")
+
 
