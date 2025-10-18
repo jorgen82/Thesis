@@ -3,7 +3,7 @@
 CREATE VIEW data_analysis.vw_track_port_to_port AS
 SELECT t.id, t.vessel_id, v.vessel_name, v.vessel_type
 	,p_from.port_name as from_port_name, p_from.country as from_country, p_to.port_name as to_port_name, p_to.country as to_country
-	,CASE WHEN p_from.country = p_to.country THEN 1 ELSE 0 END as is_intra_country_track
+	,CASE WHEN p_from.country = p_to.country THEN 1 ELSE 0 END as is_intra_country_track  --tracks with orign and destination on the same country
 	,group_id, from_port_stops_grouped_id, to_port_stops_grouped_id, ts_start, ts_end
 	,duration_h, avg_speed_kn, distance_nmi, direction
 	,track
