@@ -6,29 +6,32 @@
 -- Hexagon Grid of 6,2km (Area 99,87 km2) - We will use the GridVoyage geometry - To be used to find coast to coast track over Panama Canal and Cape Horn
 CREATE TABLE context_data.grid_voyage(id serial, geom geometry);
 
-WITH hex_grid AS (
+WITH hex_grid AS (  --Get the GridVoyage geom from the oceans table and use the ST_HexagonGrid to create the hexagons
     SELECT ST_Transform((ST_HexagonGrid(6200, ST_Transform(geometry, 3857))).geom, 4326) AS geom
     FROM context_data.oceans
     WHERE featurecla = 'GridVoyage'
 )
-INSERT INTO context_data.grid_voyage (geom)
+INSERT INTO context_data.grid_voyage (geom) 
 SELECT geom AS geom
 FROM hex_grid
-WHERE ST_Intersects(geom, (SELECT geometry FROM context_data.oceans WHERE featurecla = 'GridVoyage'))
-    AND NOT ST_Crosses(ST_Boundary((SELECT geometry FROM context_data.oceans WHERE featurecla = 'GridVoyage')),geom);
+WHERE ST_Intersects(geom, (SELECT geometry FROM context_data.oceans WHERE featurecla = 'GridVoyage')) --Only hexagons which intersects the GridVoyage geometry
+    AND NOT ST_Crosses(ST_Boundary((SELECT geometry FROM context_data.oceans WHERE featurecla = 'GridVoyage')),geom); --and do not cross its boundaries
 
+--Create the necessary indexes
 CREATE INDEX idx_grid_voyage_id ON context_data.grid_voyage (id);
 CLUSTER context_data.grid_voyage USING idx_grid_voyage_id;
 ANALYZE context_data.grid_voyage;
 
 CREATE INDEX idx_grid_voyage_geom ON context_data.grid_voyage USING GIST (geom);
 
+--Add the centroid of each hexagon and create an index on it
 ALTER TABLE context_data.grid_voyage ADD centr GEOMETRY(POINT, 4326);
 
 UPDATE context_data.grid_voyage
 SET centr = ST_Centroid(geom);
 
 CREATE INDEX idx_grid_voyage_centr ON context_data.grid_voyage USING GIST (centr);
+
 
 /* THE BELOW QUERIES CAN SERVE DIFFERENT GRID TYPES AND KEPT FOR REFERENCE. USE THOSE IF NEEDED */
 /* Hexagon Grid of 6,2km (Area 99,87 km2) - We will use the GridOcean geometry - To be used to find paths between a position and the port (calculating potential ETA or other relevant metrics)
