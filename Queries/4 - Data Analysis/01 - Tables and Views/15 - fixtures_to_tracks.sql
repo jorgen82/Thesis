@@ -5,9 +5,10 @@
 
 CREATE TABLE data_analysis.fixtures_to_tracks AS 
 	SELECT fps.id as fixtures_to_port_stops_id, t.id as track_id, fps.fixture_id, fps.vessel_id, f.fixture_date
-		,fps.first_ts_begin as port_stop_start, fps.last_ts_end as port_stop_end, t.ts_start as track_start, t.ts_end as track_end
-		,fps.port_id as fixtures_to_port_stops_port_id, ps_from.port_id as track_origin_port_id, ps_to.port_id as track_destination_port_id
-		,calcs_origin_port.distance_from_origin_port_nmi, calcs_origin_port.travel_speed_from_origin_port_kn, calcs_destination_port.distance_to_destination_port_nmi, calcs_destination_port.travel_speed_to_destination_port_kn 
+		,fps.first_ts_begin as port_stop_start, fps.last_ts_end as port_stop_end, t.ts_start as track_start, t.ts_end as track_end  --track information
+		,fps.port_id as fixtures_to_port_stops_port_id, ps_from.port_id as track_origin_port_id, ps_to.port_id as track_destination_port_id  --port stop information
+		,calcs_origin_port.distance_from_origin_port_nmi, calcs_origin_port.travel_speed_from_origin_port_kn  --metrics from origin port to fixture date
+		,calcs_destination_port.distance_to_destination_port_nmi, calcs_destination_port.travel_speed_to_destination_port_kn   --metrics from fixture date to destination port
 		,ais.geom, t.track
 	FROM data_analysis.fixtures_to_port_stops fps
 	INNER JOIN fixtures.fixtures_data f on f.id = fps.fixture_id
