@@ -34,8 +34,6 @@ CREATE INDEX idx_countries_voronoi_zone ON data_analysis.countries_voronoi
 /**************** Create stop positions and match those to the port, using the voronoi *******************/
 /*********************************************************************************************************/
 CREATE TABLE data_analysis.non_moving_positions AS
---TRUNCATE TABLE data_analysis.non_moving_positions RESTART IDENTITY;
---INSERT INTO data_analysis.non_moving_positions
 	SELECT zero.id, zero.vessel_id, zero.ts, zero.geom, pv.port_id, pv.port_name
 		,ST_DistanceSphere (zero.geom, pv.geom) as port_dist
 	FROM (
@@ -62,8 +60,6 @@ CREATE INDEX idx_ais_vesselid_ts ON ais.ais
 	USING btree (vessel_id, ts) ;
 
 CREATE TABLE data_analysis.segments AS
---TRUNCATE TABLE data_analysis.segments RESTART IDENTITY;
---INSERT INTO data_analysis.segments
 	SELECT vessel_id
 		,ts1 ,ts2  --starting and ending timestamps
 		,speed1, speed2  --starting and ending speeds
@@ -92,8 +88,6 @@ CREATE INDEX idx_segments_speed ON data_analysis.segments
 /********** Here we create potential stop beginnings and endings. The set threshold is 0.1 knots  ********/
 /*********************************************************************************************************/
 CREATE TABLE data_analysis.stop_begin AS
---TRUNCATE TABLE data_analysis.stop_begin RESTART IDENTITY;
---INSERT INTO data_analysis.stop_begin
 	SELECT vessel_id, ts2 as ts_begin
 	FROM data_analysis.segments
 	WHERE speed1 >0.1 AND speed2 <=0.1;
@@ -102,8 +96,6 @@ CREATE INDEX idx_stop_begin_vessel_id_ts ON data_analysis.stop_begin
 	USING btree (vessel_id, ts_begin);
 
 CREATE TABLE data_analysis.stop_end AS
---TRUNCATE TABLE data_analysis.stop_end RESTART IDENTITY;
---INSERT INTO data_analysis.stop_end
 	SELECT vessel_id , ts1 as ts_end
 	FROM data_analysis.segments
 	WHERE speed1 <=0.1 AND speed2 >0.1;
@@ -116,8 +108,6 @@ CREATE INDEX idx_stop_end_vessel_id_ts ON data_analysis.stop_end
 /**************** Here we create a stops table, by coupling the stop beginnings and endings **************/
 /*********************************************************************************************************/
 CREATE TABLE data_analysis.stops AS
---TRUNCATE TABLE data_analysis.stops RESTART IDENTITY;
---INSERT INTO data_analysis.stops
 	SELECT vessel_id, ts_begin, ts_end, extract (epoch FROM (ts_end - ts_begin)) as duration_s
 	FROM data_analysis.stop_begin 
 	INNER JOIN LATERAL (  --keep only stops that have an end
