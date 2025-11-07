@@ -1,20 +1,33 @@
 /*
-	We will see some details and measures on the Tracks
+    The following queries analyse vessel tracks reconstructed from AIS data.
+    They explore traffic patterns between countries, track counts per vessel type,
+    port connectivity, and port-level activity. These results support the analysis
+    presented in Chapter 5 (especially Sections 5.2.2 – 5.2.4).
 */
 
 /*********************************************************************************************************/
-/*******************************************Based on Country *********************************************/
+/******************************************* Country-to-Country Flows *************************************/
 /*********************************************************************************************************/
 
+/*
+    Basic summary of all tracks grouped by origin and destination country.
+    Shows high-level traffic flows in the region and identifies the most active
+    international connections.
+*/
 SELECT from_country, to_country, COUNT(*) as count
 FROM data_analysis.vw_track_port_to_port
 GROUP BY from_country, to_country
-ORDER BY 3 DESC
+ORDER BY count DESC										-- rank flows by volume
 
-/* Traffic between BS or MX and US per Vessel Type. Used in Section 5.2.2 */
 
---Tracks from BS to US
-SELECT from_country, to_country--, COUNT(*) as traffic
+/*
+    Traffic between The Bahamas (BS), Mexico (MX) and the United States (US),
+    broken down by vessel type.
+    These queries are used in Section 5.2.2 to examine how different tanker
+    classes contribute to cross-border movements.
+*/
+-- BS → US
+SELECT from_country, to_country
 	,COUNT(CASE WHEN vessel_type = 'Aframax Tankers' THEN 1 END) AS "Aframax Tankers"
 	,COUNT(CASE WHEN vessel_type = 'Handysize Tankers' THEN 1 END) AS "Handysize Tankers" 
 	,COUNT(CASE WHEN vessel_type = 'Panamax Tankers' THEN 1 END) AS "Panamax Tankers"
@@ -26,8 +39,8 @@ WHERE from_country = 'BS'
 	AND to_country = 'US'
 GROUP BY from_country, to_country
 UNION
---Tracks from US to BS
-SELECT from_country, to_country--, COUNT(*) as traffic
+-- US → BS
+SELECT from_country, to_country
 	,COUNT(CASE WHEN vessel_type = 'Aframax Tankers' THEN 1 END) AS "Aframax Tankers"
 	,COUNT(CASE WHEN vessel_type = 'Handysize Tankers' THEN 1 END) AS "Handysize Tankers" 
 	,COUNT(CASE WHEN vessel_type = 'Panamax Tankers' THEN 1 END) AS "Panamax Tankers"
@@ -39,8 +52,8 @@ WHERE from_country = 'US'
 	AND to_country = 'BS'
 GROUP BY from_country, to_country
 UNION
---Tracks from MX to US
-SELECT from_country, to_country--, COUNT(*) as traffic
+-- MX → US
+SELECT from_country, to_country
 	,COUNT(CASE WHEN vessel_type = 'Aframax Tankers' THEN 1 END) AS "Aframax Tankers"
 	,COUNT(CASE WHEN vessel_type = 'Handysize Tankers' THEN 1 END) AS "Handysize Tankers" 
 	,COUNT(CASE WHEN vessel_type = 'Panamax Tankers' THEN 1 END) AS "Panamax Tankers"
@@ -52,8 +65,8 @@ WHERE from_country = 'MX'
 	AND to_country = 'US'
 GROUP BY from_country, to_country
 UNION
---Tracks from US to MX
-SELECT from_country, to_country--, COUNT(*) as traffic
+-- US → MX
+SELECT from_country, to_country
 	,COUNT(CASE WHEN vessel_type = 'Aframax Tankers' THEN 1 END) AS "Aframax Tankers"
 	,COUNT(CASE WHEN vessel_type = 'Handysize Tankers' THEN 1 END) AS "Handysize Tankers" 
 	,COUNT(CASE WHEN vessel_type = 'Panamax Tankers' THEN 1 END) AS "Panamax Tankers"
@@ -72,7 +85,12 @@ GROUP BY from_country, to_country
 /******************************** Tracks Starting and Endind to Port *************************************/
 /*********************************************************************************************************/
 
-/* Tracks based in Vessel Type. Used in Section 5.2.3  */
+/*
+    Count tracks per vessel type. Also counts tracks without vessel-type
+    information, and compares against the total number of tracks in the dataset.
+    Used in Section 5.2.3 to understand how vessel classification influences
+    track coverage.
+*/
 SELECT 1, vessel_type, count(*) as count
 FROM data_analysis.vw_track_port_to_port
 WHERE vessel_type IS NOT NULL
@@ -88,28 +106,43 @@ FROM data_analysis.tracks
 ORDER BY 1,3 DESC
 
 
-/* Port Connectivity */
+/*
+    Port-to-port connectivity:
+    Shows every unique origin–destination port pair and the number of tracks
+    connecting them. Helps identify major shipping corridors.
+*/
 SELECT from_country || ' - ' || from_port_name as "From", to_country || ' - ' || to_port_name as "To", COUNT(*) as count
 FROM data_analysis.vw_track_port_to_port
 GROUP BY from_country || ' - ' || from_port_name, to_country || ' - ' || to_port_name
 ORDER BY 3 DESC
 
 
-/* Origin Port Track Count */
+/*
+    Origin port traffic:
+    Counts how many tracks start from each port. Highlights the most active
+    exporting or outbound ports.
+*/
 SELECT from_country || ' - ' || from_port_name as "From", COUNT(*) as count
 FROM data_analysis.vw_track_port_to_port 
 GROUP BY from_country || ' - ' || from_port_name 
 ORDER BY 2 DESC
 
 
-/* Destination Port Track Count */
+/*
+    Destination port traffic:
+    Counts how many tracks end at each port. Used to identify major receiving
+    or inbound ports.
+*/
 SELECT to_country || ' - ' || to_port_name as "To", COUNT(*) as count
 FROM data_analysis.vw_track_port_to_port
 GROUP BY to_country || ' - ' || to_port_name
 ORDER BY 2 DESC
 
 
-/* Most Visited Ports based on Tracks Starting and Ending to a Port */
+/*
+    Most visited ports (based only on port-origin and port-destination tracks).
+    Combines outbound and inbound track counts to rank ports by overall activity.
+*/
 SELECT COALESCE(fr.port, t.port) as port, COALESCE(count_from,0) + COALESCE(count_to,0) as count
 FROM (  -- Tracks starting from a port
 	SELECT from_country || ' - ' || from_port_name as port, COUNT(*) as count_from
@@ -124,7 +157,11 @@ FULL JOIN (  -- Tracks ending to a port
 ORDER BY 2 DESC
 
 
-/* Most Visited Ports based on All Tracks */
+/*
+    Most visited ports based on ALL reconstructed tracks (not only tracks
+    from ports to ports). This uses raw track data and linked port-stop records
+    to get a more complete view of port importance.
+*/
 SELECT COALESCE(fr.port, t.port) as port, COALESCE(count_from,0) + COALESCE(count_to,0) as count
 FROM ( -- Tracks starting from a port
 	SELECT p.country || ' - ' || p.port_name as port, COUNT(*) as count_from
@@ -145,7 +182,11 @@ FULL JOIN ( -- Tracks ending to a port
 ORDER BY 2 DESC
 
 
-/* Most Visited Ports by Year (based on All Tracks) */
+/*
+    Yearly breakdown of port traffic (2019–2022):
+    Counts tracks per port per year and creates a pivot-style table.
+    Useful for identifying temporal changes in port activity.
+*/
 WITH base_data AS (
     SELECT COALESCE(fr.port, t.port) AS port, 
            COALESCE(fr.year, t.year) AS year, 
@@ -192,7 +233,13 @@ ORDER BY total DESC; -- Sort by total column
 
 
 
-/* Comparison of the above - Used in Section 5.2.3 */
+/*
+    Comparison of:
+      (1) all tracks linked to ports, and
+      (2) tracks exclusively from port-to-port.
+    Shows how representative port-to-port tracks are relative to all movements.
+    Used in Section 5.2.3.
+*/
 SELECT COALESCE(p.port, ptp.port) as port, p.count as port_traffic, ptp.count as port_to_port_traffic, CAST((ptp.count::numeric / p.count) as decimal(5,2)) as diff
 FROM (  -- All tracks
 	SELECT COALESCE(fr.port, t.port) as port, COALESCE(count_from,0) + COALESCE(count_to,0) as count
@@ -230,7 +277,11 @@ FULL JOIN  -- Tracks starting and ending to a port
 ORDER BY 2 DESC
 
 
-/* Destination Port Per Vessel Type */
+/*
+    Destination ports by vessel type:
+    Counts arrivals by vessel class for each port, providing insight into
+    the fleet composition serving each location.
+*/
 SELECT to_country || ' - ' || to_port_name AS "To"
 	,COUNT(*) AS Fleet
 	,COUNT(CASE WHEN vessel_type = 'Aframax Tankers' THEN 1 END) AS "Aframax Tankers"
@@ -244,7 +295,11 @@ GROUP BY to_country || ' - ' || to_port_name
 ORDER BY 2 DESC
 
 
-/* Oring Port By Vessel Type */
+/*
+    Origin ports by vessel type:
+    Similar to the above but for departures. Highlights which vessel classes
+    are more common in specific exporting ports.
+*/
 SELECT from_country || ' - ' || from_port_name AS "To"
 	,COUNT(*) AS Fleet
 	,COUNT(CASE WHEN vessel_type = 'Aframax Tankers' THEN 1 END) AS "Aframax Tankers"
@@ -258,7 +313,12 @@ GROUP BY from_country || ' - ' || from_port_name
 ORDER BY 2 DESC
 
 
-/* Incoming and Outgoing Port Calls by Vessel Type based on Tracks having both oring and destination a port */
+/*
+    Incoming vs outgoing port traffic by vessel type:
+    Joins inbound and outbound traffic for each port to compare how ports
+    balance arrivals and departures. Only ports with both incoming and outgoing
+    tracks are included.
+*/
 SELECT incoming_port as port, incoming_traffic + outgoing_traffic as traffic, incoming_traffic, outgoing_traffic
 	,"Incoming - Aframax Tankers", "Incoming - Handysize Tankers", "Incoming - Panamax Tankers", "Incoming - Small Tanker (5-10K dwt)", "Incoming - Suezmax Tankers", "Incoming - ULCC-VLCC Tankers"
 	,"Outgoing - Aframax Tankers", "Outgoing - Handysize Tankers", "Outgoing - Panamax Tankers", "Outgoing - Small Tanker (5-10K dwt)", "Outgoing - Suezmax Tankers", "Outgoing - ULCC-VLCC Tankers"
@@ -292,10 +352,14 @@ ORDER BY traffic DESC
 
 
 /*********************************************************************************************************/
-/************************* Tracks the Ends to a Port but with a non-port origin **************************/
+/************************* Tracks Ending at a Port but Starting Outside a Port ****************************/
 /*********************************************************************************************************/
 
-/* Some basic info - Used in Section 5.2.4 */
+/*
+    Summary of tracks that end at a port but originate outside a port boundary.
+    Used in Section 5.2.4 to understand non-port starting points
+    (e.g., anchorages, offshore areas, open sea).
+*/
 SELECT 1, vessel_type, count(*) as count
 FROM data_analysis.vw_track_notport_to_port
 WHERE vessel_type IS NOT NULL
@@ -311,13 +375,21 @@ FROM data_analysis.tracks
 ORDER BY 1,3 DESC
 
 
--- Tracks To Port
+/*
+    Destination counts:
+    Ranks ports by how many non-port-originating tracks end there.
+*/
 SELECT to_country || ' - ' || to_port_name as "To", COUNT(*) as count
 FROM data_analysis.vw_track_port_to_port
 GROUP BY to_country || ' - ' || to_port_name
 ORDER BY 2 DESC
 
-/* Destination Per Vessel Type */
+	
+/*
+    Vessel type distribution for tracks that start outside a port
+    and end at a port. Helps identify which tanker classes most often
+    arrive from anchorages or offshore waiting zones.
+*/
 SELECT to_country || ' - ' || to_port_name AS "To", COUNT(*) as traffic
 	,COUNT(CASE WHEN vessel_type = 'Aframax Tankers' THEN 1 END) AS "Aframax Tankers"
 	,COUNT(CASE WHEN vessel_type = 'Handysize Tankers' THEN 1 END) AS "Handysize Tankers" 
