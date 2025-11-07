@@ -48,7 +48,7 @@ BEGIN
 	        prev.geom AS prev_geom,
 	        nxt.geom AS next_geom
 	    FROM test_ais curr
-		INNER JOIN LATERAL (  --Getting the previous AIS data, based on the timestamp
+		INNER JOIN LATERAL (  --Getting the previous AIS record, based on the timestamp
 			SELECT prev.id, prev.ts, prev.geom
 			FROM test_ais prev
 			WHERE prev.vessel_id = curr.vessel_id
@@ -56,7 +56,7 @@ BEGIN
 			ORDER BY prev.ts DESC
 			LIMIT 1
 			) prev ON true
-		INNER JOIN LATERAL (  --Getting the next AIS data, based on the timestamp
+		INNER JOIN LATERAL (  --Getting the next AIS record, based on the timestamp
 			SELECT nxt.id, nxt.ts, nxt.geom
 			FROM test_ais nxt
 			WHERE nxt.vessel_id = curr.vessel_id
