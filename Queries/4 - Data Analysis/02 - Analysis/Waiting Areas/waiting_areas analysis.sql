@@ -1,18 +1,27 @@
 
-/* We investigate which areas are utilized the most, based on Areas stops and Waiting Hours */
+/*  
+    This query investigates which waiting areas (anchorage clusters) are used most by vessels heading to a specific port.  
+    Metrics include:
+        - total waiting hours
+        - average waiting hours per vessel
+        - total AIS points (density proxy)
+        - total number of stops
+    The analysis can be switched to another port by editing the WHERE clause.
+*/
+
 WITH base AS (  -- Fetch basic stats for the traffic on waiting areas belonging to a specific port (in this case Galveston, you may change it to investigate another area)
     SELECT p.port_name,
         t.waiting_areas_cluster_id,
-        CAST(SUM(t.waiting_minutes)/60 AS DECIMAL(8,2)) AS total_waiting_hours,
-        CAST((SUM(t.waiting_minutes)/60) / COUNT(t.vessel_id) AS DECIMAL(9,3)) AS avg_waiting_hours,
-        SUM(t.nb_points) AS total_nb_points,
-        COUNT(t.vessel_id) AS total_stops
+        CAST(SUM(t.waiting_minutes)/60 AS DECIMAL(8,2)) AS total_waiting_hours,                      -- Total accumulated waiting time in HOURS for this waiting area
+        CAST((SUM(t.waiting_minutes)/60) / COUNT(t.vessel_id) AS DECIMAL(9,3)) AS avg_waiting_hours, -- Average waiting hours per vessel using this waiting area
+        SUM(t.nb_points) AS total_nb_points,                                                         -- Total number of AIS points in this waiting cluster (proxy for time spent)
+        COUNT(t.vessel_id) AS total_stops                                                            -- Number of distinct waiting events (stops)
     FROM data_analysis.waiting_areas_traffic t
     INNER JOIN context_data.ports p ON p.id = t.to_port_id
     WHERE p.port_name = 'GALVESTON'   -- Change the port to the one you would like to investigate
     GROUP BY p.port_name, t.waiting_areas_cluster_id
 ),
-pct AS ( -- total stops and total hours of each waiting area, but the totals of the specific port (pct of an area over the port where it belongs to)
+pct AS ( -- Calculate the percentage contribution of each waiting area relative to the port it belongs to share of total stops and share of total waiting hours
     SELECT *,
         CAST(total_stops * 1.0 / SUM(total_stops) OVER (PARTITION BY port_name) AS DECIMAL(5,4)) AS total_stops_pct, 
         CAST(total_waiting_hours * 1.0 / SUM(total_waiting_hours) OVER (PARTITION BY port_name) AS DECIMAL(5,4)) AS total_waiting_hours_pct
@@ -36,23 +45,31 @@ FROM cumulative_compare
 ORDER BY total_stops DESC;
 
 
--- Concave Hulls of Waiting Areas in specific region (filtered by ports)
+/* 
+    Retrieve concave hull polygons for waiting areas associated with selected ports.
+    These hulls are used for visualizing actual anchorage zone geometry.
+*/
 SELECT t.waiting_areas_cluster_id, CAST((SUM(t.waiting_minutes) / count(t.vessel_id)) / 60 as decimal(9,3)) as avg_waiting_hours, count(*) as total_tracks, wa.concave_hull
 FROM data_analysis.waiting_areas_traffic t
 INNER JOIN data_analysis.waiting_areas wa on wa.cid_dbscan = t.waiting_areas_cluster_id
 INNER JOIN context_data.ports p on p.id = t.to_port_id
-WHERE p.port_name in ('GALVESTON', 'HOUSTON', 'DEER PARK', 'PASADENA', 'SINCO', 'NORSWORTHY', 'BAYTOWN', 'TEXAS CITY')
+WHERE p.port_name in ('GALVESTON', 'HOUSTON', 'DEER PARK', 'PASADENA', 'SINCO', 'NORSWORTHY', 'BAYTOWN', 'TEXAS CITY')   -- Ports in the Galveston–Houston region
 GROUP BY t.waiting_areas_cluster_id, wa.concave_hull
 
 
--- Metrics for vessel heading to Galveston Area. Used in Section 5.3.5)
+    
+/*
+    Identify clusters that belong to the Galveston region 
+    by spatially matching cluster centroids to port Voronoi zones.
+    Used in Section 5.3.5
+*/
 with galveston_areas as (SELECT wa.cid_dbscan
     FROM data_analysis.waiting_areas wa
     INNER JOIN data_analysis.ports_voronoi pv ON ST_Within(wa.centr, pv.voronoi_zone)
     INNER JOIN context_data.ports p ON p.id = pv.port_id
     WHERE p.port_name in ('CORPUS CHRISTI', 'PORT INGLESIDE', 'PORT ARANSAS', 'ROCKPORT')
 )
-,track_totals as (
+,track_totals as (  --Identify tracks that used more than one waiting area.  Needed to test whether multi-area tracks include or exclude Galveston.
     SELECT DISTINCT track_id, waiting_areas_total
     FROM data_analysis.waiting_areas_traffic
     WHERE waiting_areas_total !=1
@@ -133,3 +150,4 @@ INNER JOIN context_data.ports p on p.id = t.to_port_id
 WHERE p.port_name in ('CORPUS CHRISTI', 'PORT INGLESIDE', 'PORT ARANSAS', 'ROCKPORT')
     AND t.from_port_stops_grouped_id IS NOT NULL
     AND waiting_areas_cluster_id not in (select cid_dbscan from galveston_areas)
+
