@@ -151,3 +151,4 @@ WHERE p.port_name in ('CORPUS CHRISTI', 'PORT INGLESIDE', 'PORT ARANSAS', 'ROCKP
     AND t.from_port_stops_grouped_id IS NOT NULL
     AND waiting_areas_cluster_id not in (select cid_dbscan from galveston_areas)
 
+
