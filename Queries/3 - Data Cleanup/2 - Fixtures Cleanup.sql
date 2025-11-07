@@ -1,5 +1,6 @@
 /************************************************************************************************************************************************************/
 /* Update country column of the fixtures. This manual update is done for the ports that the Google API could not identify, and its based on research        */
+/* Thise step should be altered manually, and based on the results of the Google API	 																	*/
 /************************************************************************************************************************************************************/
 UPDATE fixtures.fixtures_data SET country = 'Nigeria' WHERE port_load = 'ABO';
 UPDATE fixtures.fixtures_data SET country = 'Nigeria' WHERE port_load = 'AGBAMI TERMINAL';
@@ -136,9 +137,10 @@ UPDATE fixtures.fixtures_data SET country = 'Equatorial Guinea' WHERE port_load 
 UPDATE fixtures.fixtures_data SET country = 'Unknown' WHERE country is null;
 
 
-/******************************************************************************************/
-/* Remove fixtures not in the North US Regon                                              */
-/******************************************************************************************/
+/********************************************************************************************/
+/* Remove fixtures not in the North US Regon                                                */
+/* This step should be altered based on the results of the Google API and the previous step */
+/********************************************************************************************/
 DELETE FROM fixtures.fixtures_data
 WHERE country NOT IN ('Antigua and Barbuda', 'Antigua Barbuda', 'Aruba', 'Bahamas', 'Canada', 'Caribbean', 'Caribbean Netherlands', 'Cayman Islands', 'Curacao', 'Guyana', 'Mexico', 'Saint Lucia', 'The Bahamas', 'Trinidad and Tobago', 'U.S. Virgin Islands', 'United States', 'Unknown', 'Venezuela')
 
@@ -171,12 +173,12 @@ WHERE ID IN (
 			AND a.laycan_to > b.laycan_from
 			AND a.laycan_from != b.laycan_from
 		)
-	WHERE row_num > 1
+	WHERE row_num > 1 --keep only the most recent (row_num was based on the DESC of fixture_date)
 	);
 
 
 /************************************************************************************************************************************/
-/* Cleanup od Duplicate Fixtures (ones having different fixture date), by keeping only the ones with the most recent fixture date   */
+/* Cleanup of Duplicate Fixtures (ones having different fixture date), by keeping only the ones with the most recent fixture date   */
 /************************************************************************************************************************************/
 DELETE FROM fixtures.fixtures_data
 WHERE ID IN (
@@ -192,7 +194,7 @@ WHERE ID IN (
 			GROUP BY vessel_name, laycan_from, laycan_to
 			HAVING COUNT(*)> 1) dup on dup.vessel_name = f.vessel_name AND dup.laycan_from = f.laycan_from AND dup.laycan_to = f.laycan_to
 		)
-	WHERE row_num > 1
+	WHERE row_num > 1  --keep only the most recent (row_num was based on the DESC of fixture_date)
 );
 
 
