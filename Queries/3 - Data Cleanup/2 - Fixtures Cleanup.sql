@@ -1,5 +1,5 @@
 /************************************************************************************************************************************************************/
-/* Update country column if imported fixtures. This manual update is done for the ports that the Google API could not identify, and its based on research   */
+/* Update country column of the fixtures. This manual update is done for the ports that the Google API could not identify, and its based on research        */
 /************************************************************************************************************************************************************/
 UPDATE fixtures.fixtures_data SET country = 'Nigeria' WHERE port_load = 'ABO';
 UPDATE fixtures.fixtures_data SET country = 'Nigeria' WHERE port_load = 'AGBAMI TERMINAL';
