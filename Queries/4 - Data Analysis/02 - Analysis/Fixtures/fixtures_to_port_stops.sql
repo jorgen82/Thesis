@@ -1,7 +1,7 @@
 /*********************************************************************************************************/
 /******************************************* First Analysis **********************************************/
 /*********************************************************************************************************/
-/** This block is used in Section 5.1.1. It generates summary metrics describing the quality, 
+/** This query is used in Section 5.1.1. It generates summary metrics describing the quality, 
     completeness, and timing performance of fixtures matched to AIS-derived port stops. 
     Results help evaluate how well the commercial data aligns with operational vessel behaviour. */
 /*********************************************************************************************************/
