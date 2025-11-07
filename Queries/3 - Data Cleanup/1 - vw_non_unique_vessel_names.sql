@@ -8,7 +8,6 @@ SELECT vessel_name
 FROM (
     SELECT vessel_name, imo
     FROM ais.vessel
-	--WHERE vessel_category <> 'Tankers' 
     GROUP BY vessel_name, imo
     ) 
 GROUP BY vessel_name 
